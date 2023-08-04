@@ -1,0 +1,173 @@
+= 索引及调优
+:source-highlighter: highlight.js
+:source-language: sql
+:toc: left
+:toc-title: 索引及调优
+:toclevels: 3
+:sectnums:
+
+== 索引的数据结构
+详情见link:_g.索引的数据结构.pdf[索引的数据结构]。
+
+== 索引的创建与设计原则
+=== 索引的分类
+- 从功能逻辑上说，索引主要有 4 种，分别是普通索引、唯一索引、主键索引、全文索引。
+- 按照物理实现方式，索引可以分为 2 种：聚簇索引和非聚簇索引。
+- 按照作用字段个数进行划分，分成单列索引和联合索引。
+
+=== 不同存储引擎对索引类型的支持
+- InnoDB：支持 B-tree、Full-text 等索引，不支持 Hash索引；
+- MyISAM： 支持 B-tree、Full-text 等索引，不支持 Hash 索引；
+- Memory：支持 B-tree、Hash 等索引，不支持 Full-text 索引；
+- NDB：支持 Hash 索引，不支持 B-tree、Full-text 等索引；
+- Archive：不支持 B-tree、Hash、Full-text 等索引。
+
+=== 索引的创建与删除
+==== 创建索引
+创建主键约束、唯一性约束、外键约束时会自动创建对应索引。
+
+.建表时显式创建
+----
+CREATE TABLE table_name [col_name data_type]
+[UNIQUE | FULLTEXT | SPATIAL] [INDEX | KEY] [index_name] (col_name [length]) [ASC |
+DESC] <1>
+----
+<1> FULLTEXT：全文索引；SPATIAL：空间索引，空间类型的字段必须为非空。
+
+.建表后创建
+----
+ALTER TABLE table_name ADD [UNIQUE | FULLTEXT | SPATIAL] [INDEX | KEY]
+[index_name] (col_name[length],...) [ASC | DESC]
+
+# 或
+
+CREATE [UNIQUE | FULLTEXT | SPATIAL] INDEX index_name
+ON table_name (col_name[length],...) [ASC | DESC]
+----
+
+==== 删除索引
+----
+ALTER TABLE table_name DROP INDEX index_name;
+# 或
+DROP INDEX index_name ON table_name;
+----
+
+=== MySQL8.0索引新特性
+==== 降序索引
+===== 概述
+降序索引以降序存储键值。虽然在语法上，从MySQL4版本开始就已经支持降序索引的语法了，但实际上该DESC定义是被忽略的，直到MysQL8.x版本才开始真正支持降序素引（仅限于InnoDB存储引擎）。
+
+MySQL在8.0版本之前创建的仍然是升序索引，使用时进行反向扫描，这大大降低了数据库的效率。在某些场景下，降序索引意义重大。例如，如果一个查询，需要对多个列进行排序，且顺序要求不一致，那么使用降序索引将会避免数据库使用额外的文件排序操作，从而提高性能。
+
+===== 语法
+----
+CREATE TABLE ts1(a int,b int,index idx_a_b(a ASC,b DESC));
+----
+
+==== 隐藏索引
+===== 概述
+在MySQL 5.7版本及之前，只能通过显式的方式删除索引。此时，如果发现删除索引后出现错误，又只能通过显式创建索引的方式将删除的索引创建回来。如果数据表中的数据量非常大，或者数据表本身比较大，这种操作就会消耗系统过多的资源，操作成本非常高。
+
+从MySQL 8.x开始支持 隐藏索引（invisible indexes） ，只需要将待删除的索引设置为隐藏索引，使查询优化器不再使用这个索引（即使使用force index（强制使用索引），优化器也不会使用该索引），确认将索引设置为隐藏索引后系统不受任何响应，就可以彻底删除索引。 这种通过先将索引设置为隐藏索引，再删除索引的方式就是软删除 。
+
+NOTE: 主键不能被设置为隐藏索引。当表中没有显式主键时，表中第一个唯一非空索引会成为隐式主键，也不能设置为隐藏索引。
+
+===== 创建隐藏索引
+.建表时
+----
+CREATE TABLE tablename(
+propname1 type1[CONSTRAINT1],
+propname2 type2[CONSTRAINT2],
+……
+propnamen typen,
+INDEX [indexname](propname1 [(length)]) INVISIBLE
+);
+----
+
+.建表后
+----
+CREATE INDEX indexname
+ON tablename(propname[(length)]) INVISIBLE;
+# 或
+ALTER TABLE tablename
+ADD INDEX indexname (propname [(length)]) INVISIBLE;
+----
+
+===== 切换索引可见状态
+----
+ALTER TABLE tablename ALTER INDEX index_name INVISIBLE; #切换成隐藏索引
+ALTER TABLE tablename ALTER INDEX index_name VISIBLE; #切换成非隐藏索引
+----
+
+===== 使隐藏索引对查询优化器可见
+在MySQL 8.x版本中，为索引提供了一种新的测试方式，可以通过查询优化器的一个开关（use_invisible_indexes）来打开某个设置，使隐藏索引对查询优化器可见。如果 use_invisible_indexes设置为off(默认)，优化器会忽略隐藏索引。如果设置为on，即使隐藏索引不可见，优化器在生成执行计划时仍会考虑使用隐藏索引。
+
+.查看隐藏索引对查询优化器是否可见
+----
+select @@optimizer_switch
+----
+.设置为可见
+----
+set session optimizer_switch="use_invisible_indexes=on";
+----
+
+=== 索引的设计原则
+==== 适合创建索引的情况
+- 字段的数值有唯一性的限制
+- 频繁作为 WHERE 查询条件的字段
+- 经常 GROUP BY 和 ORDER BY 的列
+- UPDATE、DELETE 的 WHERE 条件列
+- DISTINCT 字段需要创建索引
+- 多表 JOIN 连接操作时，创建索引注意事项
+* 连接表的数量尽量不要超过 3 张
+* 对 WHERE 条件创建索引
+* 对用于连接的字段创建索引，且该字段在多张表中的 类型必须一致
+- 使用列的类型小的创建索引，如INT和TINYINT中尽量选择后者
+- 使用字符串前缀创建索引
++
+[NOTE]
+====
+计算不同的长度的选择性：
+
+.先看一下字段在全部数据中的选择度
+----
+select count(distinct address) / count(*) from shop;
+----
+.通过不同长度去计算，与全表的选择性对比
+----
+count(distinct left(列名, 索引长度))/count(*)
+----
+====
+- 区分度高(散列性高)的列适合作为索引
++
+NOTE: 可以使用公式 `select count(distinct a)/count(*)from t1` 计算区分度，越接近1越好，一般超过33%就算是比较高效的索引。
+- 使用最频繁的列放到联合索引的左侧
+- 在多个字段都要创建索引的情况下，联合索引优于单值索引
+
+==== 限制索引的数目
+在实际工作中，我们也需要注意平衡，索引的数目不是越多越好。我们需要限制每张表上的索引数量，建议单张表索引数量不超过6个。
+
+.原因：
+- 每个索引都需要占用磁盘空间，索引越多，需要的磁盘空间就越大。
+- 索引会影响INSERT、DELETE、UPDATE等语句的性能，因为表中的数据更改的同时，索引也会进行调整和更新，会造成负担。
+- 优化器在选择如何优化查询时，会根据统一信息，对每一个可以用到的索引来进行评估，以生成出一个最好的执行计划，如果同时有很多个索引都可以用于查询，会增加MySQL优化器生成执行计划时间，降低查询性能。
+
+==== 不适合创建索引的情况
+- 在where中使用不到的字段，不要设置索引
+- 数据量小的表最好不要使用索引
++
+NOTE: 在数据表中的数据行数比较少的情况下，比如不到 1000 行，是不需要创建索引的。
+- 有大量重复数据的列上不要建立索引
++
+NOTE: 当数据重复度大，比如 高于 10% 的时候，也不需要对这个字段使用索引。
+- 避免对经常更新的表创建过多的索引
+- 不建议用无序的值作为索引
++
+NOTE: 例如身份证、UUID(在索引比较时需要转为ASCII，并且插入时可能造成页分裂)、MD5、HASH、无序长字符串等。
+- 删除不再使用或者很少使用的索引
+- 不要定义冗余或重复的索引
+
+== 性能分析工具的使用
+详情见link:_g.性能分析工具的使用.pdf[性能分析工具的使用]。
+
+参考代码：link:_g.EXPLAIN的使用.adoc[EXPLAIN的使用]。

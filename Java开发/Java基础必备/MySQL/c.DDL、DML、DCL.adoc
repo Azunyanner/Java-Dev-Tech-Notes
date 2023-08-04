@@ -1,0 +1,542 @@
+= DDL、DML、DCL
+:source-highlighter: highlight.js
+:source-language: sql
+:toc: left
+:toc-title: DDL、DML、DCL
+:toclevels: 3
+:sectnums:
+
+== 创建和管理表
+=== 创建和管理数据库
+==== 创建数据库
+- 创建数据库
++
+----
+CREATE DATABASE 数据库名;
+----
+- 创建数据库并指定字符集
++
+----
+CREATE DATABASE 数据库名 CHARACTER SET 字符集;
+----
+- 判断数据库是否已经存在，不存在则创建数据库（ 推荐 ）
++
+----
+CREATE DATABASE IF NOT EXISTS 数据库名;
+----
+
+NOTE: DATABASE 不能改名。一些可视化工具可以改名，它是建新库，把所有表复制到新库，再删旧库完成的。
+
+==== 使用数据库
+- 查看当前所有的数据库
++
+----
+SHOW DATABASES;
+----
+- 查看当前正在使用的数据库
++
+----
+SELECT DATABASE(); #使用的一个 mysql 中的全局函数
+----
+- 查看指定库下所有的表
++
+----
+SHOW TABLES FROM 数据库名;
+----
+- 查看数据库的创建信息
++
+----
+SHOW CREATE DATABASE 数据库名;
+# 或
+SHOW CREATE DATABASE 数据库名\G
+----
+- 使用/切换数据库
++
+----
+USE 数据库名;
+----
+
+==== 修改数据库
+- 更改数据库字符集
++
+----
+ALTER DATABASE 数据库名 CHARACTER SET 字符集; #比如：gbk、utf8等
+----
+- 删除指定的数据库
++
+----
+DROP DATABASE 数据库名;
+----
+- 删除（如果存在）指定的数据库（ 推荐 ）
++
+----
+DROP DATABASE IF EXISTS 数据库名;
+----
+
+=== 创建表
+==== 字段数据类型
+
+
+==== 创建方式一
+- 必须具备：
+* CREATE TABLE权限
+* 存储空间
+- 必须指定：
+* 表名
+* 列名(或字段名)，数据类型，长度
+- 可选指定：
+* 约束条件
+* 默认值
+
+----
+CREATE TABLE [IF NOT EXISTS] 表名(
+字段1, 数据类型 [约束条件] [默认值],
+字段2, 数据类型 [约束条件] [默认值],
+字段3, 数据类型 [约束条件] [默认值],
+……
+[表约束条件]
+);
+----
+
+==== 创建方式二
+----
+CREATE TABLE table
+AS
+SELECT ...
+----
+
+==== 查看数据表结构
+----
+SHOW CREATE TABLE 表名\G
+# 或
+DESCRIBE/DESC 表名
+----
+
+NOTE: 使用SHOW CREATE TABLE语句不仅可以查看表创建时的详细语句，还可以查看存储引擎和字符编码。
+
+=== 修改表
+- 追加一个列
++
+----
+ALTER TABLE 表名 ADD 【COLUMN】 字段名 字段类型 【FIRST|AFTER 字段名】;
+----
+- 修改一个列
+* 可以修改列的数据类型，长度、默认值和位置
++
+----
+ALTER TABLE 表名 MODIFY 【COLUMN】 字段名1 字段类型 【DEFAULT 默认值】【FIRST|AFTER 字段名
+2】;
+----
+- 重命名一个列
++
+----
+ALTER TABLE 表名 CHANGE 【column】 列名 新列名 新数据类型;
+----
+- 删除一个列
++
+----
+ALTER TABLE 表名 DROP 【COLUMN】字段名
+----
+
+=== 重命名表
+.方式一
+----
+RENAME TABLE 表名
+TO 新表名;
+----
+
+.方式二
+----
+ALTER table 表名
+RENAME [TO] 新表名; -- [TO]可以省略
+----
+
+=== 删除表
+- 在MySQL中，当一张数据表 没有与其他任何数据表形成关联关系时，可以将当前数据表直接删除。
+- 数据和结构都被删除。
+- 所有正在运行的相关事务被提交。
+- 所有相关索引被删除。
+
+----
+DROP TABLE [IF EXISTS] 数据表1 [, 数据表2, …, 数据表n];
+----
+
+=== 清空表
+==== 语法
+----
+TRUNCATE TABLE 表名;
+# 或
+DELETE FROM 表名;
+----
+
+TRUNCATE语句不能回滚，而使用 DELETE 语句删除数据，可以回滚。
+
+==== DCL中COMMIT和ROLLBACK
+- COMMIT：提交数据。一旦执行COMMIT,则数据就被永久的保存在了数据库中，意味着数据不可以回滚。
+- ROLLBACK：回滚数据。一旦执行ROLLBACK,则可以实现数据的回滚。回滚到最近的一次COMMIT之后。
+
+==== DDL和DML的说明
+- DDL的操作一旦执行，就不可回滚。指令SET autocommit=FALSE对DDL操作无效。
+- DML的操作默认情况，一旦执行，也是不可回滚的。但是，如果在执行DML之前，执行了SET autocommit=FALSE,则执行的DML操作就可以实现回滚。
+
+== 数据处理之增删改
+=== 插入数据
+==== VALUES的方式添加
+.为表的所有字段按默认顺序插入数据
+----
+INSERT INTO 表名
+VALUES (value1,value2,....);
+----
+
+.为表的指定字段插入数据
+----
+INSERT INTO 表名(column1 [, column2, …, columnn])
+VALUES (value1 [,value2, …, valuen]);
+----
+
+.同时插入多条记录
+----
+INSERT INTO table_name
+VALUES
+(value1 [,value2, …, valuen]),
+(value1 [,value2, …, valuen]),
+……
+(value1 [,value2, …, valuen]);
+
+# 或
+
+INSERT INTO table_name(column1 [, column2, …, columnn])
+VALUES
+(value1 [,value2, …, valuen]),
+(value1 [,value2, …, valuen]),
+……
+(value1 [,value2, …, valuen]);
+----
+
+NOTE: VALUES 也可以写成 VALUE ，但是VALUES是标准写法。 +
+字符和日期型数据应包含在单引号中。
+
+==== 将查询结果插入到表中
+----
+INSERT INTO 目标表名
+(tar_column1 [, tar_column2, …, tar_columnn])
+SELECT
+(src_column1 [, src_column2, …, src_columnn])
+FROM 源表名
+[WHERE condition]
+----
+
+=== 更新数据
+----
+UPDATE table_name
+SET column1=value1, column2=value2, … , column=valuen
+[WHERE condition]
+----
+
+=== 删除数据
+----
+DELETE FROM table_name [WHERE <condition>];
+----
+
+=== MySQL8新特性：计算列
+计算列是指某一列的值是通过别的列计算得来的。例如，a列值为1、b列值为2，c列不需要手动插入，定义a+b的结果为c的值，那么c就是计算列，是通过别的列计算得来的。
+
+.例
+----
+CREATE TABLE tb1(
+id INT,
+a INT,
+b INT,
+c INT GENERATED ALWAYS AS (a + b) VIRTUAL
+);
+----
+
+== MySQL数据类型[待补充...]
+=== 整型
+
+=== 浮点型
+
+=== 定点数类型
+
+=== 位类型
+
+=== 时间与日期类型
+
+=== 文本字符串类型
+
+=== ENUM类型
+
+=== SET类型
+
+=== 二进制字符串类型
+
+=== JSON类型
+
+=== 空间类型
+
+== 约束（constraint）
+=== 概述
+==== 约束的作用
+数据完整性（Data Integrity）是指数据的精确性（Accuracy）和可靠性（Reliability）。为了保证数据的完整性，SQL规范以约束的方式对表数据进行额外的条件限制。从以下四个方面考虑：
+
+- 实体完整性（Entity Integrity） ：例如，同一个表中，不能存在两条完全相同无法区分的记录
+- 域完整性（Domain Integrity） ：例如：年龄范围0-120，性别范围“男/女”
+- 引用完整性（Referential Integrity） ：例如：员工所在部门，在部门表中要能找到这个部门
+- 用户自定义完整性（User-defined Integrity） ：例如：用户名唯一、密码不能为空等，本部门经理的工资不得高于本部门职工的平均工资的5倍。
+
+==== 约束的分类
+- 根据约束数据列的限制，约束可分为：
+* 单列约束：每个约束只约束一列
+* 多列约束：每个约束可约束多列数据
+- 根据约束的作用范围，约束可分为：
+* 列级约束：只能作用在一个列上，跟在列的定义后面
+* 表级约束：可以作用在多个列上，不与列一起，而是单独定义
+- 根据约束起的作用，约束可分为：
+* NOT NULL 非空约束，规定某个字段不能为空
+* UNIQUE 唯一约束，规定某个字段在整个表中是唯一的
+* PRIMARY KEY 主键(非空且唯一)约束
+* FOREIGN KEY 外键约束
+* CHECK 检查约束
+* DEFAULT 默认值约束
+
+=== 非空约束(NOT NULL)
+非空约束只能出现在表对象的列上，只能某个列单独限定非空，不能组合非空。
+
+==== 添加
+.建表时
+----
+CREATE TABLE 表名称(
+字段名 数据类型,
+字段名 数据类型 NOT NULL,
+字段名 数据类型 NOT NULL
+);
+----
+.建表后
+----
+alter table 表名称 modify 字段名 数据类型 not null;
+----
+
+==== 删除
+----
+alter table 表名称 modify 字段名 数据类型 NULL;#去掉not null，相当于修改某个非注解字段，该字段允许为空
+# 或
+alter table 表名称 modify 字段名 数据类型;#去掉not null，相当于修改某个非注解字段，该字段允许为空
+----
+
+=== 唯一性约束(UNIQUE)
+- 唯一约束可以是某一个列的值唯一，也可以多个列组合的值唯一。
+- 唯一性约束允许列值为空。
+- 在创建唯一约束的时候，如果不给唯一约束命名，就默认和列名相同。
+- MySQL会给唯一约束的列上默认创建一个唯一索引。
+
+==== 添加
+.建表时
+----
+create table 表名称(
+字段名 数据类型,
+字段名 数据类型 unique,
+字段名 数据类型 unique key,
+字段名 数据类型
+);
+create table 表名称(
+字段名 数据类型,
+字段名 数据类型,
+字段名 数据类型,
+[constraint 约束名] unique key(字段名)
+);
+----
+.建表后
+----
+alter table 表名称 add unique key(字段列表);
+# 或
+alter table 表名称 modify 字段名 字段类型 unique;
+----
+
+==== 复合唯一约束
+----
+create table 表名称(
+字段名 数据类型,
+字段名 数据类型,
+字段名 数据类型,
+unique key(字段列表) #字段列表中写的是多个字段名，多个字段名用逗号分隔，表示是复合唯一，即多个字段的组合是唯一的
+);<1>
+CONSTRAINT uk_字段名1_字段名2 UNIQUE(字段名1,字段名);#方式二，自定义名
+----
+<1> 复合唯一约束中的单个字段不能为NULL。
+
+==== 删除
+- 添加唯一性约束的列上也会自动创建唯一索引。
+- 删除唯一约束只能通过**删除唯一索引**的方式删除。
+- 删除时需要指定唯一索引名，唯一索引名就和唯一约束名一样。
+如果创建唯一约束时未指定名称，如果是单列，就默认和列名相同；如果是组合列，那么默认和()中排在第一个的列名相同。也可以自定义唯一性约束名。
+
+----
+ALTER TABLE 表名
+DROP INDEX uk_name_pwd;
+----
+
+==== 查看表的索引
+----
+show index from 表名称; 
+----
+
+=== 主键约束(PRIMARY KEY)
+- 主键约束列不允许重复，也不允许出现空值。
+- 主键约束对应着表中的一列或者多列（复合主键）
+- MySQL的主键名总是PRIMARY，自定义命名无效。
+- 当创建主键约束时，系统默认会在所在的列或列组合上建立对应的主键索引（能够根据主键查询的，就根据主键查询，效率更高）。如果删除主键约束，主键约束对应的索引就自动删除。
+
+==== 添加
+.建表时
+----
+create table 表名称(
+字段名 数据类型 primary key, #列级模式
+字段名 数据类型,
+字段名 数据类型
+);
+create table 表名称(
+字段名 数据类型,
+字段名 数据类型,
+字段名 数据类型,
+[constraint 约束名] primary key(字段名) #表级模式
+);
+----
+.建表后
+----
+ALTER TABLE 表名称 ADD PRIMARY KEY(字段列表); #字段列表可以是一个字段，也可以是多个字段，如果是多个字段的话，是复合主键
+----
+
+==== 删除
+----
+alter table 表名称 drop primary key;
+----
+
+NOTE: 删除主键约束后，非空还存在。
+
+=== 自增列(AUTO_INCREMENT)
+==== 作用
+某个字段的值自增
+
+==== 关键字
+auto_increment
+
+==== 特点和要求
+. 一个表最多只能有一个自增长列
+. 当需要产生唯一标识符或顺序值时，可设置自增长
+. 自增长列约束的列必须是键列（主键列或唯一键列）
+. 自增约束的列的数据类型必须是整数类型
+. 如果自增列指定了 0 和 null，会在当前最大值的基础上自增；如果自增列手动指定了具体值，直接
+赋值为具体值。
+
+==== 添加自增约束
+.建表时
+----
+create table 表名称(
+字段名 数据类型 primary key auto_increment,
+字段名 数据类型 unique key not null,
+字段名 数据类型 unique key,
+字段名 数据类型 not null default 默认值,
+);
+create table 表名称(
+字段名 数据类型 default 默认值 ,
+字段名 数据类型 unique key auto_increment,
+字段名 数据类型 not null default 默认值,,
+primary key(字段名)
+);
+----
+.建表后
+----
+alter table 表名称 modify 字段名 数据类型 auto_increment;
+----
+
+==== 删除自增约束
+----
+alter table 表名称 modify 字段名 数据类型; #去掉auto_increment相当于删除
+----
+
+==== MySQL 8.0新特性—自增变量的持久化
+在MySQL 8.0之前，自增主键AUTO_INCREMENT的值如果大于max(primary key)+1，在MySQL重启后，会重置AUTO_INCREMENT=max(primary key)+1，这种现象在某些情况下会导致业务主键冲突或者其他难以发现的问题。
+
+MySQL 8.0将自增主键的计数器持久化到重做日志中。每次计数器发生改变，都会将其写入重做日志中。如果数据库重启，InnoDB会根据重做日志中的信息来初始化计数器的内存值。
+
+=== 外键约束(FOREIGN KEY)[待补充...]
+==== 作用
+限定某个表的某个字段的引用完整性。
+
+==== 主表和从表/父表和子表
+- 主表（父表）：被引用的表，被参考的表
+- 从表（子表）：引用别人的表，参考别人的表
+
+例如：员工表的员工所在部门这个字段的值要参考部门表：部门表是主表，员工表是从表。
+
+=== 检查约束( CHECK)
+检查某个字段的值是否符号xx要求，一般指的是值的范围。
+
+- MySQL5.7 可以使用check约束，但check约束对数据验证没有任何作用。添加数据时，没有任何错误或警告。
+- MySQL 8.0支持check约束。
+
+.例一
+----
+CREATE TABLE temp(
+id INT AUTO_INCREMENT,
+NAME VARCHAR(20),
+age INT CHECK(age > 20),
+PRIMARY KEY(id)
+);
+----
+
+.例二
+----
+age tinyint check(age >20) 或 sex char(2) check(sex in(‘男’,’女’))
+----
+
+=== 默认值约束(DEFAULT)
+==== 作用
+给某个字段/某列指定默认值，一旦设置默认值，在插入数据时，如果此字段没有显式赋值，则赋值为默认值。
+
+==== 给字段添加默认值
+.建表时
+----
+create table 表名称(
+字段名 数据类型 primary key,
+字段名 数据类型 unique key not null,
+字段名 数据类型 unique key,
+字段名 数据类型 not null default 默认值,
+);
+create table 表名称(
+再举例：
+字段名 数据类型 default 默认值 ,
+字段名 数据类型 not null default 默认值,
+字段名 数据类型 not null default 默认值,
+primary key(字段名),
+unique key(字段名)
+);
+----
+
+NOTE: 默认值约束一般不在唯一键和主键列上加
+
+.建表后
+----
+alter table 表名称 modify 字段名 数据类型 default 默认值;
+alter table 表名称 modify 字段名 数据类型 default 默认值 not null;
+----
+
+==== 删除默认值约束
+----
+alter table 表名称 modify 字段名 数据类型 ; #删除默认值约束，也不保留非空约束
+alter table 表名称 modify 字段名 数据类型 not null; #删除默认值约束，保留非空约束
+----
+
+=== 面试题
+==== 为什么建表时，加 not null default '' 或 default 0？
+不想让表中出现null值。
+
+==== 为什么不想要 null 的值？
+- 不好比较。null是一种特殊值，比较时只能用专门的is null 和 is not null来比较。碰到运算符，通常返回null。
+- 效率不高。影响提高索引效果。因此，我们往往在建表时 not null default '' 或 default 0
+
+==== 带AUTO_INCREMENT约束的字段值是从1开始的吗？ 
+在MySQL中，默认AUTO_INCREMENT的初始值是1，每新增一条记录，字段值自动加1。设置自增属性（AUTO_INCREMENT）的时候，还可以指定第一条插入记录的自增字段的值，这样新插入的记录的自增字段值从初始值开始递增，如在表中插入第一条记录，同时指定id值为5，则以后插入的记录的id值就会从6开始往上增加。添加主键约束时，往往需要设置字段自动增加属性。
+
+==== 并不是每个表都可以任意选择存储引擎？
+外键约束（FOREIGN KEY）不能跨引擎使用。MySQL支持多种存储引擎，每一个表都可以指定一个不同的存储引擎，需要注意的是：外键约束是用来保证数据的参照完整性的，如果表之间需要关联外键，却指定了不同的存储引擎，那么这些表之间是不能创建外键约束的。所以说，存储引擎的选择也不完全是随意的。
