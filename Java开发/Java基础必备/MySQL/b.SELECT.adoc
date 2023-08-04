@@ -480,19 +480,23 @@ system_user(),session_user()
 == 聚合函数
 === 聚合函数介绍
 [%header, cols="2*^.^"]
+|===
 |函数|使用范围
 |AVG()|数值型数据
 |SUM()|数值型数据
 |MAX()|任意数据类型
 |MIN()|任意数据类型
 |COUNT()|任意数据类型
+|===
 
 [NOTE]
+====
 关于count(*)，count(1)，count(列名)：
 
 - 区别：count(*)会统计值为 NULL 的行，而 count(列名)不会统计此列为 NULL 值的行。
 
 - 使用哪个：对于MyISAM引擎的表是没有区别的。这种引擎内部有一计数器在维护着行数。Innodb引擎的表用count(*),count(1)直接读行数，复杂度是O(n)，因为innodb真的要去数一遍。但好于具体的count(列名)。
+====
 
 === GROUP BY
 ==== 用法
