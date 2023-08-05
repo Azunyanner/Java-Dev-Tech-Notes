@@ -171,3 +171,36 @@ NOTE: 例如身份证、UUID(在索引比较时需要转为ASCII，并且插入�
 详情见link:_g.性能分析工具的使用.pdf[性能分析工具的使用]。
 
 参考代码：link:_g.EXPLAIN的使用.adoc[EXPLAIN的使用]。
+
+=== 补充
+==== 慢查询日志分析工具mysqldumpslow[接链接4.5]
+除了上述变量，控制慢查询日志的还有一个系统变量：`min_examined_row_limit`。这个变量的意思是，查询扫描过的最少记录数。这个变量和查询执行时间，共同组成了判别一个查询是否是慢查询的条件。如果查询扫描过的记录数大于等于这个变量的值，并且查询执行时间超过 `long_query_time` 的值，那么，这个查询就被记录到慢查询日志中；反之，则不被记录到慢查询日志中。
+
+这个值默认是0。与 `long_query._time=10` 合在一起，表示只要查询的执行时间超过10秒钟，哪怕一个记录也没有扫描过，都要被记录到慢查询日志中。你也可以根据需要，通过修改“my.ii”文件，来修改查询时长，或者通过SET指令，用SQL语句修改 `min_examined_row_limit` 的值。
+
+==== 删除慢查询日志[接链接2.7]
+- 删除
+* 使用SHOW语句显示慢查询日志信息
++
+----
+SHOW VARIABLES LIKE 'slow_query_log%';
+----
+* 慢查询日志的目录默认为MySQL的数据目录，在该目录下手动别除慢查询日志文件即可。
+- 初始化
+* 使用命令mysqladmin f1ush-logs来重新生成查询日志文件，命令如下，执行完毕会在数据目录下重新生成慢查询日志文件。
++
+----
+mysqladmin -uroot -p flush-logs slow
+----
+
+==== 日常开发需注意的结论[接链接5]
+- converting HEAP to MyISAM:查询结果太大，内存不够，数据往磁盘上搬了。
+- Creating tmp table:创建临时表。先拷贝数据到临时表，用完后再删除临时表。
+- Copying to tmp table on disk:把内存中临时表复制到磁盘上，警惕！
+- locked
+
+如果在 `show profilei` 诊断结果中出现了以上4条结果中的任何一条，则sql语句需要优化。
+
+NOTE: SHOW PROFILE命令将被弃用，我们可以从information_schema中的profiling数据表进行查看。
+
+== 索引优化与查询优化
