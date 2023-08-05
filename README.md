@@ -1,6 +1,6 @@
-# myAsciiDoc_rep
+# Java Dev Tech Notes
 
-myAsciiDoc_rep is a note repository written in Asciidoc format.
+Java-Dev-Tech-Notes is a note repository written in Asciidoc format.
 
 ## Introduction
 
