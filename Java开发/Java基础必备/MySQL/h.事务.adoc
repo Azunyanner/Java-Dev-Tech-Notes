@@ -1,0 +1,401 @@
+= 事务
+:source-highlighter: highlight.js
+:source-language: sql
+:toc: left
+:toc-title: 事务
+:toclevels: 3
+:sectnums:
+
+== 事务基础知识
+=== 数据库事务概述
+事务是数据库区别于文件系统的重要特性之一，当我们有了事务就会让数据库始终保持一致性，同时我们还能通过事务的机制恢复到某个时间点，这样可以保证已提交到数据库的修改不会因为系统崩溃而丢失。
+
+==== 存储引擎支持情况
+可以通过 `SHOW ENGINES` 命令来查看当前 MySQL 支持的存储引擎以及对事务的支持情况。 +
+MySQL 中，只有InnoDB 是支持事务的。
+
+==== 基本概念  
+事务：一组逻辑操作单元，使数据从一种状态变换到另一种状态。
+
+事务处理的原则：保证所有事务都作为 一个工作单元 来执行，即使出现了故障，都不能改变这种执行方式。当在一个事务中执行多个操作时，要么所有的事务都被提交(commit)，那么这些修改就永久地保存下来；要么数据库管理系统将放弃所作的所有修改，整个事务回滚(rollback)到最初状态。
+
+==== 事务的ACID特性
+- 原子性（atomicity）：原子性是指事务是一个不可分割的工作单位，要么全部提交，要么全部失败回滚。
+- 一致性（consistency）：一致性是指事务执行前后，数据从一个合法性状态变换到另外一个合法性状态。这种状态是语义上的而不是语法上的，跟具体的业务有关。
++
+NOTE: 什么是合法的数据状态呢？满足预定的约束的状态就叫做合法的状态。通俗一点，这状态是由你自己来定义的（比如满足现实世界中的约束）。满足这个状态，数据就是一致的，不满足这个状态，数据就是不一致的！如果事务中的某个操作失败了，系统就会自动撤销当前正在执行的事务，返回到事务操作之前的状态。
+- 隔离型（isolation）：隔离性是指一个事务的执行不能被其他事务干扰，即一个事务内部的操作及使用的数据对并发的其他事务是隔离的，并发执行的各个事务之间不能互相干扰。
+- 持久性（durability）：持久性是指一个事务一旦被提交，它对数据库中数据的改变就是永久性的，接下来的其他操作和数据库故障不应该对其有任何影响。
++
+NOTE: 持久性是通过事务日志来保证的。日志包括了重做日志和回滚日志。当我们通过事务对数据进行修改的时候，首先会将数据库的变化信息记录到重做日志中，然后再对数据库中对应的行进行修改。这样做的好处是，即使数据库系统崩溃，数据库重启后也能找到没有更新到数据库系统中的重做日志，重新执行，从而使事务具有持久性。
+
+==== 事务的状态
+- 活动的（active）：事务对应的数据库操作**正在执行过程中**时，我们就说该事务处在活动的状态。
+- 部分提交的（partially committed）：当事务中的最后一个操作执行完成，但由于操作都在内存中执行，所造成的影响并**没有刷新到磁盘**时，我们就说该事务处在部分提交的状态。
+- 失败的（failed）：当事务处在活动的或者部分提交的状态时，可能**遇到了某些错误**（数据库自身的错误、操作系统错误或者直接断电等）而**无法继续执行**，或者人为的停止当前事务的执行，我们就说该事务处在失败的状态。
+- 中止的（aborted）：如果事务执行了一部分而变为失败的状态，那么就需要把已经修改的事务中的操作还原到事务执行前的状态。换句话说，就是要撤销失败事务对当前数据库造成的影响。我们把这个撤销的过程称之为回滚。当回滚操作执行完毕时，也就是**数据库恢复到了执行事务之前的状态**，我们就说该事务处在了中止的状态。
+- 提交的（committed）：当一个处在部分提交的状态的事务将**修改过的数据都同步到磁盘上**之后，我们就可以说该事务处在了提交的状态。
+
+=== 如何使用事务
+==== 显式事务
+. 开启事务：`START TRANSACTION` 或者 `BEGIN`，作用是显式开启一个事务。
++
+[NOTE]
+====
+`START TRANSACTION` 语句相较于 `BEGIN` 特别之处在于，后边能跟随几个修饰符:
+
+- READ ONLY ：标识当前事务是一个 只读事务 ，也就是属于该事务的数据库操作只能读取数据，而不能修改数据。
+- READ WRITE ：标识当前事务是一个 读写事务 ，也就是属于该事务的数据库操作既可以读取数据，也可以修改数据。
+- WITH CONSISTENT SNAPSHOT ：启动一致性读。
+====
+. 一系列事务中的操作（主要是DML，不含DDL）。
+. 提交事务： `COMMIT` 或 中止事务（即回滚事务）： `ROLLBACK`。
+
+[discrete]
+===== 关于保存点
+- 创建保存点： `SAVEPOINT 保存点名称`。
+- 删除保存点： `RELEASE SAVEPOINT 保存点名称`。
+- 回滚到指定保存点： `ROLLBACK TO 保存点名称`。
+
+NOTE: 回滚到保存点不是最终的状态，仍需选择提交或中止事务。
+
+==== 隐式事务
+- 开启自动提交：
++
+.设置系统变量，默认为开
+----
+SET autocommit = ON;
+----
+
+- 关闭自动提交：
++
+.1. 显式使用事务
+显式的使用 `START TRANSACTION` 或者 `BEGIN` 语句开启一个事务。这样在本次事务提交或者回滚前会暂时关闭掉自动提交的功能。
++
+.2. 设置系统变量
+----
+SET autocommit = OFF;
+#或
+SET autocommit = 0;
+----
+
+==== 隐式提交数据的情况
+- 数据定义语言（DDL）
+- 隐式使用或修改mysql数据库中的表。
+* 针对角色和权限的一些操作。
+- 事务控制或关于锁定的语句
+* 没有提交或推滚当前事务就开启另一个事务时，会隐式提交上一个事务。
+* 当前的 autocommit 系统变量的值为 OFF，改为 ON 后会隐式提交前面语句所属的事务。
+* 使用 LOCK TABLES 、 UNLOCK TABLES 等关于锁定的语句也会隐式提交。
+- 加载数据的语句。
+* 使用LOAD DATA批量导入数据时会隐式提交。
+- 关于MySQL复制的一些语句
+* 主从复制相关的一些操作。
+- 其它的一些语句
+* 分析表、检查表、优化表等语句。
+
+=== 事务隔离级别
+==== 数据并发问题
+- 脏写（ Dirty Write ）：对于两个事务 Session A、Session B，如果事务Session A 修改了另一个未提交事务Session B 修改过的数据，那就意味着发生了脏写。
+- 脏读（ Dirty Read ）：对于两个事务 Session A、Session B，Session A  读取了已经被 Session B 更新但还没有被提交的字段。之后若 Session B 回滚，Session A 读取的内容就是临时且无效的。即发生了脏读。
+- 不可重复读（ Non-Repeatable Read ）：对于两个事务Session A、Session B，Session A 读取了一个字段，然后 Session B 更新了该字段。之后Session A 再次读取同一个字段，值就不同了。这就意味着发生了不可重复读。
+- 幻读（ Phantom ）：对于两个事务Session A、Session B, Session A 从一个表中读取了一个字段, 然后 Session B 在该表中插入了一些新的行。之后,如果 Session A 再次读取同一个表, 就会多出几行。那就意味着发生了幻读。
+
+==== SQL中的四种隔离级别
+问题按照严重性排序为：脏写 > 脏读 > 不可重复读 > 幻读。
+
+.SQL标准中设立的4个隔离级别
+[%header, cols="5*^.^"]
+|===
+|隔离级别|脏读可能性|不可重复读可能性|幻读可能性|加锁读
+|READ UNCOMMITTED(读未提交)|YES|YES|YES|NO
+|READ COMMITTED(读已提交)|NO|YES|YES|NO
+|REPEATABLE READ(可重复读)|NO|NO|YES|NO
+|SERIALIZABLE(可串行化)|NO|NO|NO|YES
+|===
+NOTE: 脏写最严重，四个级别均解决了脏写问题。 +
+隔离级别越高，数据一致性就越好，但并发性越弱。
+
+==== 查看隔离级别
+MySQL的默认隔离级别为REPEATABLE READ，可以手动修改事务的隔离级别。
+
+.MySQL 5.7.20的版本之前：
+----
+SHOW VARIABLES LIKE 'tx_isolation'
+----
+.MySQL 5.7.20的版本及之后：
+----
+SHOW VARIABLES LIKE 'transaction_isolation'
+----
+==== 设置隔离级别
+- 方式一：
++
+----
+SET [GLOBAL|SESSION] TRANSACTION ISOLATION LEVEL<1>
+----
+<1> 其中，隔离级别格式：
+* READ UNCOMMITTED
+* READ COMMITTED
+* REPEATABLE READ
+* SERIALIZABLE
+
+- 方式二：
++
+----
+SET [GLOBAL|SESSION] TRANSACTION_ISOLATION = '隔离级别'<1>
+----
+<1> 其中，隔离级别格式：
+* READ-UNCOMMITTED
+* READ-COMMITTED
+* REPEATABLE-READ
+* SERIALIZABLE
+
+[discrete]
+===== 关于设置时使用GLOBAL或SESSION的影响
+- 使用 GLOBAL 关键字（在全局范围影响）：
+* 当前已经存在的会话无效
+* 只对执行完该语句之后产生的新创建的会话起作用
+
+- 使用 SESSION 关键字（在会话范围影响）：
+* 对当前会话的所有后续的事务有效
+* 如果在事务之间执行，则对后续的事务有效
+* 该语句可以在已经开启的事务中间执行，但不会影响当前正在执行的事务
+
+=== 事务的常见分类 
+从事务理论的角度来看，可以把事务分为以下几种类型：
+
+- 扁平事务（Flat Transactions）
+- 带有保存点的扁平事务（Flat Transactions with Savepoints）
+- 链事务（Chained Transactions）
+- 嵌套事务（Nested Transactions）
+- 分布式事务（Distributed Transactions）
+
+== MySQL事务日志
+=== 日志的概述及其作用
+==== 概述
+- REDO LOG 称为重做日志，提供再写入操作，恢复提交事务修改的页操作，用来保证事务的持久性。
+- UNDO LOG 称为回滚日志，回滚行记录到某个特定版本，用来保证事务的原子性、一致性。
+
+==== 重做日志和回滚日志对比
+UNDO不是REDO的逆过程，REDO和UNDO都可以视为是一种恢复操作。
+
+- redo log:是存储引擎层(innodb)生成的日志，记录的是**物理级别**上的页修改操作，比如页号xx、偏移量yyy写入了zzz数据。主要为了保证数据的可靠性。
+- undo log:是存储引擎层(innodb)生成的日志，记录的是**逻辑操作**日志，比如对某一行数据进行了INSERT语句操作，那么undo log就记录一条与之相反的DELETE操作。主要用于事务的回滚（undo log记录的是每个修改操作的逆操作）和一致性非锁定读(undo log回滚行记录到某种特定的版本——MVCC,即多版本并发控制)。
+
+==== 作用
+- 事务的隔离性由锁机制实现。
+- 而事务的原子性、一致性和持久性由事务的 redo 日志和undo 日志来保证。
+
+=== redo日志
+==== 为什么需要redo日志？
+InnoDB存储引擎是以页为单位来管理存储空间的。在真正访问页面之前，需要把在磁盘上的页缓存到内存中的Buffer Poo1之后才可以访问。所有的变更都必须先更新缓冲池中的数据，然后缓冲池中的脏页会以一定的频率被刷入磁盘(checkPoint机制)，通过缓冲池来优化CPU和磁盘之间的鸿沟，这样就可以保证整体的性能不会下降太快。
+
+缓冲池可以帮助我们消除CPU和磁盘之间的鸿沟，checkpoint机制可以保证数据的最终落盘，然而由于checkpoint 并不是每次变更的时候就触发 的，而是master线程隔一段时间去处理的。所以最坏的情况就是事务提交后，刚写完缓冲池，数据库宕机了，那么这段数据就是丢失的，无法恢复。
+
+若没有redo日志，在事务提交完成之前把该事务所修改的所有页面都刷新到磁盘，会有以下两个问题：
+
+- 修改量与刷新磁盘工作量严重不成处比例
+- 随机IO刷新较慢
+
+redo日志解决了以上问题。
+
+==== REDO日志的好处、特点
+.好处
+- redo日志降低了刷盘频率
+- redo日志占用的空间非常小
+
+.特点
+- redo日志是顺序写入磁盘的
+- 事务执行过程中，redo log不断记录
+
+==== redo的组成
+- 重做日志的缓冲 (redo log buffer) ，保存在内存中，是易失的。
+- 重做日志文件 (redo log file) ，保存在硬盘中，是持久的。
+
+具体说明见后续redo log file部分的<<相关参数设置>>。
+
+==== redo的整体流程
+image::images\\redo的整体流程.png[align="center"]
+
+. 先将原始数据从磁盘中读入内存中来，修改数据的内存拷贝
+. 生成一条重做日志并写入redo log buffer，记录的是数据被修改后的值
+. 当事务commit时，将redo log buffer中的内容刷新到 redo log file，对 redo log file采用追加写的方式
+. 定期将内存中修改的数据刷新到磁盘中
+
+NOTE: 体会：Write-Ahead Log(预先日志持久化)：在持久化一个数据页之前，先将内存中相应的日志页持久化。
+
+==== redo log的刷盘策略
+刷盘策略由innodb_flush_log_at_trx_commit参数和文件系统缓存（page cache）决定。
+
+.补充：文件系统缓存（page cache）
+redo log buffer刷盘到redo log file的过程并不是真正的刷到磁盘中去，只是刷入到 文件系统缓存（page cache）中去（这是现代操作系统为了提高文件写入效率做的一个优化），真正的写入会交给系统自己来决定（比如page cache足够大了）。
+
+===== innodb_flush_log_at_trx_commit = 1（默认值）
+表示每次事务提交时都将进行同步刷盘操作。
+
+image::images\\刷盘策略-参数为1.png[align="center"]
+
+[NOTE]
+====
+- innodb_flush_log_at_trx_commit参数和后台线程并行的控制刷盘策略，即两者满足其一就执行刷盘。
+- 参数为1时，**只要事务提交成功**，redo log记录就一定在硬盘里，*不会有任何数据丢失*。
+- 如果事务执行期间MySQL挂了或宕机，这部分日志会丢失，但是事务并没有提交，所以日志丢了也不会有损失。可以保证ACID的D,数据绝对不会丢失，但是**效率最差**的。
+- 建议使用默认值，虽然操作系统宕机的概率理论小于数据库宕机的概率，但是一般既然使用了事务，那么数据的安全相对来说更重要些。
+====
+
+===== innodb_flush_log_at_trx_commit = 2
+表示每次事务提交时都只把 redo log buffer 内容写入 page cache，不进行同步。由os自己决定什么时候同步到磁盘文件。
+
+image::images\\刷盘策略-参数为2.png[align="center"]
+
+[NOTE]
+====
+- 参数为2时，只要事务提交成功，redo log buffer中的内容只写入文件系统缓存(page cache)
+- 如果仅仅只是**MySQL挂了不会有任何数据丢失**，但是**操作系统宕机可能会有1秒数据的丢失**，这种情况下无法满足ACID中的D。但是**效率最高**。
+====
+
+===== innodb_flush_log_at_trx_commit = 0
+表示每次事务提交时不进行刷盘操作。（系统默认master thread每隔1s进行一次重做日志的同步）。
+
+image::images\\刷盘策略-参数为0.png[align="center"]
+
+[NOTE]
+====
+- 参数为0时，master thread中每1秒进行一次重做日志的fsync操作，因此实例crash最多丢失1秒钟内的事务。(master thread是负责将缓冲池中的数据异步刷新到磁盘，保证数据的一致性)
+- 此策略是一种折中的做法，它的IO效率理论高于1，低于2，这种策略也有丢失数据的风险，也无法保证D。
+====
+
+===== 小结
+设置参数innodb_flush_log_at_trx_.commit为0或2可以提高事务提交的性能，但这种设置方法丧失了事务的ACID特性。
+
+==== 写入redo log buffer过程
+===== Mini-Transaction的概念
+MySQL把对底层页面中的一次原子访问的过程称之为一个Mini-Transaction,简称mtr,比如，向某个索引对应的B+树中插入一条记录的过程就是一个Mini-Transaction。一个所谓的mtr可以包含一组redo日志，在进行崩溃恢复时这一组redo日志作为一个不可分割的整体。
+
+一个事务可以包含若干条语句，每一条语句其实是由若干个 mtr 组成，每一个 mtr 又可以包含若干条redo日志。
+
+===== redo 日志写入log buffer
+向log buffer中写入redo日志的过程是**顺序**的，也就是先往前边的block中写，当该block的空闲空间用完之后
+再往下一个block中写。
+
+- 全局变量：buf_free的，该变量指明后续写入的redo日志应该写入到log buffer中的哪个位置。
+
+.redo log buffer结构及写入示意图
+image::images\\redo log buffer结构及写入示意图.png[align="center"]
+
+不同的事务可能是并发执行的，所以T1、T2之间的mtr可能是交替执行的。
+
+===== redo log block
+一个redo log block是由日志头、日志体、日志尾组成。日志头占用12字节，日志尾占用8字节，所以一个block真正能存储的数据就是512-12-8=492字节。
+
+.为什么一个blocki设计成512字节？
+这个和磁盘的扇区有关，机械磁盘默认的扇区就是512字节，如果你要写入的数据大于512字节，那么要写入的扇区肯定不止一个，这时就要涉及到盘片的转动，找到下一个扇区，假设现在需要写入两个扇区A和B,如果扇区A写入成功，而扇区B写入失败，那么就会出现非原子性的写入，而如果每次只写入和扇区的大小一样的512字节，那么每次的写入都是原子性的。
+
+==== redo log file
+===== [[相关参数设置]]相关参数设置
+- innodb_log_group_home_dir：指定 redo log 文件组所在的路径，默认值为 ./ ，表示在数据库的数据目录下。
+- innodb_log_files_in_group：指明redo log file的个数，命名方式如：ib_logfile0，iblogfile1...iblogfilen。默认2个，最大100个。
+- innodb_flush_log_at_trx_commit：控制 redo log 刷新到磁盘的策略，默认为1。
+- innodb_log_file_size：单个 redo log 文件设置大小，默认值为 48M。最大值为512G，最大值指的是整个 redo log 系列文件之和。
+
+===== 日志文件组
+.redo日志文件组示意图
+image::images\\redo日志文件组.png[align="center"]
+
+redo日志文件组采用循环使用的方式向redo日志文件组里写数据，为避免后写入日志覆盖前面日志，InnoDB的设计者提出checkpoint的概念。如下图所示：
+
+image::images\\redo日志文件组-checkpoint.png[align="center"]
+
+如果 write pos 追上 checkpoint ，表示日志文件组满了，这时候不能再写入新的 redo log记录，MySQL 得停下来，清空一些记录，把 checkpoint 推进一下。
+
+=== Undo日志
+redo log是事务持久性的保证，undo log是事务原子性的保证。在事务中更新数据的前置操作其实是要先写入一个 undo log 。
+
+==== 如何理解undo日志？
+undo日志记录和回滚的操作包括INSERT、DELETE、UPDATE。
+
+- 插入一条记录时，要把这条记录的主键值记下来，之后回滚的时候只需要把这个主键值对应的记录删掉。(对于每个NSERT,InnoDB存储引擎会完成一个DELETE)
+- 删除一条记录时，要把这条记录中的内容都记下来，这样之后回滚时再把由这些内容组成的记录插入到表中。(对于每个DELETE,InnoDB存储引擎会执行一个INSERT)
+- 修改一条记录时，要把修改这条记录前的旧值都记录下来，这样之后回滚时再把这条记录更新为旧值。(对于每个UPDATE,InnoDBi存储引擎会执行一个相反的UPDATE,将修改前的行放回去)
+
+MySQL把这些为了回滚而记录的这些内容称之为撤销日志或者回滚日志(即udo1og)。注意，由于**查询操作(SELECT)并不会修改任何用户记录**，所以在查询操作执行时，并**不需要记录相应的undo日志**。
+
+==== undo日志的作用
+- 回滚数据
+* 回滚不是将数据库物理地恢复到执行语句或事务之前的样子。undo是逻辑日志，只是将数据库逻辑地恢复到原来的样子，但是数据结构和页本身在回滚之后可能大不相同。
+- MVCC
+
+==== undo的存储结构
+===== 回滚段与undo页
+====== 回滚段
+InnoDB对undo log的管理采用段的方式，也就是 回滚段（rollback segment） 。每个回滚段记录了1024 个 undo log segment ，而在每个undo log segment段中进行 undo页 的申请。
+
+.相关参数
+- innodb_undo_directory:设置rollback segment文件所在的路径。
+- innodb_undo_logs:设置rollback segment的个数，默认值为128。
+- innodb_undo_tablespaces:设置构成rollback segment,文件的数量。
+
+NOTE: undo日志的参数很少会改动。
+
+====== undo页
+undo页被设计为可重用，当事务提交时，并不会立刻删除undo页。因为重用，所以这个undo页可能混杂着其他事务的undo log。undo log在commit后，会被放到一个链表中，然后判断undo页的使用空间是否小于3/4,如果小于3/4的话，则表示当前的undo页可以被重用，那么它就不会被回收，其他事务的undo log可以记录在当前undo页的后面。由于undo log是离散的，所以清理对应的磁盘空间时，效率不高。
+
+===== 回滚段与事务
+- 每个事务只会使用一个回滚段，一个回滚段在同一时刻可能会服务于多个事务。
+- 当一个事务开始的时候，会制定一个回滚段，在事务进行的过程中，当数据被修改时，原始的数据会被复制到回滚段。
+- 在回滚段中，事务会不断填充盘区，直到事务结束或所有的空间被用完。如果当前的盘区不够用，事务会在段中请求扩展下一个盘区，如果所有已分配的盘区都被用完，事务会覆盖最初的盘区或者在回滚段允许的情况下扩展新的盘区来使用。
+- 回滚段存在于undo表空间中，在数据库中可以存在多个undo表空间，但同一时刻只能使用一个undo表空间。
+- 当事务提交时，InnoDB存储引擎会做以下两件事情：
+* 将undo log放入列表中，以供之后的purge操作。
+* 判断undo log所在的页是否可以重用，若可以分配给下个事务使用。
+
+===== 回滚段中的数据分类
+- 未提交的回滚数据(uncommitted undo information)
+- 已经提交但未过期的回滚数据(committed undo information)
+- 事务已经提交并过期的数据(expired undo information)
+
+事务提交后并不能马上删除undo log及undo log所在的页。这是因为可能还有其他事务需要通过undo log来得到行记录之前的版本。故事务提交时将undo log)放入一个链表中，是否可以最终删除undo log及undo log所在页由purge线程来判断。
+
+==== undo log的类型及其删除
+在InnoDB:存储引擎中，undo log:分为：
+
+- insert undo log +
+insert undo log是指在insert操作中产生的undo log。因为insert操作的记录，只对事务本身可见，对其他事务不可见（这是事务隔离性的要求），故该undo log可以在**事务提交后直接删除**。不需要进行purge操作。
+- update undo log +
+update undo log记录的是对delete和update操作产生的undo log。该undo log可能需要提供MVCC机制，因此**不能在事务提交时就进行删除**。提交时放入undo log链表，等待purge线程进行最后的删除。
+
+.关于purge线程的作用
+purge线程两个主要作用是：清理undo页和清除page里面带有Delete_Bit标识的数据行。在InnoDB中，事务中的Delete操作实际上并不是真正的删除掉数据行，而是一种Delete Mark操作，在记录上标识Delete_Bit,而不删除记录。是一种"假删除"，只是做了个标记，真正的删除工作需要后台purge线程去完成。
+
+==== undo log的生命周期
+===== redo log + undo log的流程
+假设有2个数值，分别为A=1和B=2,然后将A修改为3,B修改为4
+
+. start transaction
+. 记录A=1到undo log
+. update A=3
+. 记录A=3到redo log
+. 记录B=2到undo log
+. update B=4
+. 记录B=4到redo log
+. 将redo log刷新到磁盘
+. commit
+
+===== 图解
+image::images\\redo + undo总流程.png[align="center"]
+
+==== 小结图解
+image::images\\redo + undo总流程-2.png[align="center"]
+
+== 锁[待补充...]
+.MySQL锁家族
+image::images\\MySQL锁家族.png[align="center"]
+
+暂时观看pdf文件link:_h.锁.pdf[锁]，配合视频 https://www.bilibili.com/video/BV1iq4y1u7vj?p=173[锁p173-p182]可快速了解相关知识。
+
+== 多版本并发控制
+*MVCC 的实现依赖于：隐藏字段、Undo Log、Read View。*
+
+详情见link:_h.多版本并发控制.pdf[多版本并发控制]。
+
+NOTE: 链接内**重点**：*ReadView的规则*、*MVCC整体操作流程*。

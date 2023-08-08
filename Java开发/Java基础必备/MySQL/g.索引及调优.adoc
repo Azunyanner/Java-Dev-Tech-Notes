@@ -238,7 +238,7 @@ NOTE: 统一使用utf8mb4( 5.5.3版本以上支持)兼容性更好，统一字�
 .Hash Join
 从MySQL的8.0.20版本开始将废弃BNLJ,因为从MySQL8.0.18版本开始就加入了hash join，默认都会使用hash join。
 
-以上内容建议观看视频： https://www.bilibili.com/video/BV1iq4y1u7vj?p=144&vd_source=d607f09ea07e91f2e2fcfb8974b67c8c[JOIN语句的底层原理]
+以上内容建议观看视频： https://www.bilibili.com/video/BV1iq4y1u7vj?p=144[JOIN语句的底层原理]
 
 ===== 小结
 . 整体效率比较：INLJ>BNLJ>SNLJ
@@ -622,7 +622,7 @@ NOTE: 这个原则并不是绝对的，有时候我们需要牺牲数据的冗�
 === PowerDesigner的使用
 PowerDesigner是一款开发人员常用的数据库建模工具，用户利用该软件可以方便地制作 数据流程图 、概念数据模型 、 物理数据模型 ，它几乎包括了数据库模型设计的全过程，是Sybase公司为企业建模和设计提供的一套完整的集成化企业级建模解决方案。
 
-具体使用见视频： https://www.bilibili.com/video/BV1iq4y1u7vj?p=158&vd_source=d607f09ea07e91f2e2fcfb8974b67c8c[PowerDesignert创健概念、物理数据模型]。
+具体使用见视频： https://www.bilibili.com/video/BV1iq4y1u7vj?p=158[PowerDesignert创健概念、物理数据模型]。
 
 == 数据库其它调优策略[待补充...]
 === 数据库调优的措施
