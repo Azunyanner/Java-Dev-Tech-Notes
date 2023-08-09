@@ -266,7 +266,7 @@ image::images\\刷盘策略-参数为0.png[align="center"]
 ====
 
 ===== 小结
-设置参数innodb_flush_log_at_trx_.commit为0或2可以提高事务提交的性能，但这种设置方法丧失了事务的ACID特性。
+设置参数innodb_flush_log_at_trx_commit为0或2可以提高事务提交的性能，但这种设置方法丧失了事务的ACID特性。
 
 ==== 写入redo log buffer过程
 ===== Mini-Transaction的概念
@@ -357,7 +357,7 @@ undo页被设计为可重用，当事务提交时，并不会立刻删除undo页
 事务提交后并不能马上删除undo log及undo log所在的页。这是因为可能还有其他事务需要通过undo log来得到行记录之前的版本。故事务提交时将undo log)放入一个链表中，是否可以最终删除undo log及undo log所在页由purge线程来判断。
 
 ==== undo log的类型及其删除
-在InnoDB:存储引擎中，undo log:分为：
+在InnoDB:存储引擎中，undo log分为：
 
 - insert undo log +
 insert undo log是指在insert操作中产生的undo log。因为insert操作的记录，只对事务本身可见，对其他事务不可见（这是事务隔离性的要求），故该undo log可以在**事务提交后直接删除**。不需要进行purge操作。
