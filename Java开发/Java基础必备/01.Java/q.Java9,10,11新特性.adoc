@@ -1,0 +1,271 @@
+= Java9,10,11新特性
+:source-highlighter: highlight.js
+:source-language: java
+:toc: left
+:toc-title: Java9,10,11新特性
+:toclevels: 3
+:sectnums:
+
+== Java9新特性
+=== 概述
+经过4次跳票，历经曲折的Java 9 终于终于在2017年9月21日发布。 +
+Java 9 提供了超过150项新功能特性，包括备受期待的模块化系统、可交互的 REPL 工具：jshell，JDK 编译工具，Java 公共 API 和私有代码，以及安全增强、扩展提升、性能管理改善等。可以说Java 9是一个庞大的系统工程，完全做了一个整体改变。
+
+=== JDK 和 JRE 目录结构的改变
+.Java8 目录结构
+[cols="^.^1,^.^5"]
+|===
+|bin 目录 |包含命令行开发和调试工具，如javac，jar和javadoc
+|include目录 |包含在编译本地代码时使用的C/C++头文件
+|lib 目录 |包含JDK工具的几个JAR和其他类型的文件。 它有一个tools.jar文件，其中包含javac编译器的Java类
+|jre/bin 目录 |包含基本命令，如java命令。 在Windows平台上，它包含系统的运行时动态链接库（DLL）
+|jre/lib 目录 |包含用户可编辑的配置文件，如.properties和.policy文件。包含几个JAR。rt.jar文件包含运行时的Java类和资源文件
+|===
+
+.Java9 目录结构
+[cols="^.^1,^.^5"]
+|===
+|bin 目录 |包含所有命令。 在Windows平台上，它继续包含系统的运行时动态链接库
+|conf 目录 |包含用户可编辑的配置文件，例如以前位于jre\lib目录中的.properties和.policy文件
+|include 目录 |包含要在以前编译本地代码时使用的C/C++头文件。 它只存在于JDK中
+|jmods 目录 |包含JMOD格式的平台模块。 创建自定义运行时映像时需要它。 它只存在于JDK中
+|legal 目录 |包含法律声明
+|lib 目录 |包含非Windows平台上的动态链接本地库。 其子目录和文件不应由开发人员直接编辑或使用
+|===
+
+NOTE: Java9没有名为jre的子目录
+
+=== 模块化系统
+==== 概述
+用模块来管理各个package，通过声明某个package暴露，，模块(module)的概念，其实就是package外再裹一层，不声明默认就是隐藏。因此，模块化使得代码组织上更安全，因为它可以指定哪些部分可以暴露，哪些部分隐藏。
+
+==== 实现目标
+. 模块化的主要目的在于减少内存的开销。
+. 只须必要模块，而非全部jdk模块，可简化各种类库和大型应用的开发和维护。
+. 改进 Java SE 平台，使其可以适应不同大小的计算设备。
+. 改进其安全性，可维护性，提高性能。
+
+==== 使用方式
+要想在java9demo模块中调用java9test模块下包中的结构，需要在java9test的module-info.java中声明：
+----
+module java9test {
+exports com.atguigui.bean;
+}
+----
+NOTE: exports：控制着哪些包可以被其它模块访问到。所有不被导出的包默认都被封装在模块里面。
+
+对应在java 9demo 模块的src 下创建module-info.java文件：
+----
+module java9demo {
+requires java9test;
+}
+----
+NOTE: requires：指明对其它模块的依赖。
+
+=== Java的REPL工具：jShell命令
+==== 背景
+像Python 和 Scala 之类的语言早就有交互式编程环境 REPL (read - evaluate - print -loop)，以交互式的方式对语句和表达式进行求值。开发者只需要输入一些代码，就可以在编译前获得对程序的反馈。而之前的Java版本要想执行代码，必须创建文件、声明类、提供测试方法才能实现。
+
+==== 设计理念
+即写即得、快速运行。
+
+==== 实现目标
+- Java 9 中终于拥有了 REPL工具：jShell。让Java可以像脚本语言一样运行，从控制台启动jShell，利用jShell在没有创建类的情况下直接声明变量，计算表达式，执行语句。即开发时可以在命令行里直接运行Java的代码，而无需创建Java文件，无需跟人解释”public static void main(String[] args)”这句废话。
+- jShell也可以从文件中加载语句或者将语句保存到文件中。
+- jShell也可以是tab键进行自动补全和自动添加分号。
+
+=== 语法改进：接口的私有方法
+Java 8中规定接口中的方法除了抽象方法之外，还可以定义静态方法和默认的方法。一定程度上，扩展了接口的功能，此时的接口更像是一个抽象类。
+
+在Java 9中，接口更加的灵活和强大，方法的访问权限修饰符可以声明为private，此时方法将不会成为对外暴露的API的一部分。
+
+=== 语法改进：钻石操作符使用升级
+与匿名实现类共同使用钻石操作符（diamond operator）在Java 8会报错，Java 9中可以正常执行通过。
+----
+Comparator<Object> com = new Comparator<>(){
+    @Override
+    public int compare(Object o1, Object o2) {
+    return 0;
+    }
+};
+----
+NOTE: Java 8 中new Comparator<>必须写全为new Comparator<Object>。
+
+=== 语法改进：try语句
+Java 8 中，可以实现资源的自动关闭，但是要求执行后必须关闭的所有资源必须在try子句中初始化，否则编译不通过。如下例所示：
+----
+try(InputStreamReader reader = new InputStreamReader(System.in)){
+//读取数据细节省略
+}catch (IOException e){
+e.printStackTrace();
+}
+----
+
+Java 9 中，用资源语句编写try将更容易，我们可以在try子句中使用已经初始化过的资源，*此时的资源是final的*：
+----
+InputStreamReader reader = new InputStreamReader(System.in);
+OutputStreamWriter writer = new OutputStreamWriter(System.out);
+try (reader; writer) {
+//reader是final的，不可再被赋值
+//reader = null;
+//具体读写操作省略
+} catch (IOException e) {
+e.printStackTrace();
+}
+----
+
+=== String存储结构变更
+==== 动机
+String类的当前实现将字符存储在字符数组中，每个字符使用两个字节(16位)。从许多不同的应用程序收集的数据表明，字符串是堆使用的主要组成部分，而且，大多数String对象只包含Latin-1字符。这些字符只需要一个字节的存储空间，因此这些String对象的内部字符数组中有一半的空间是未使用的。
+
+==== 描述
+我们建议将String类的内部表示形式从UTF-16字符数组更改为字节数组加上编码标志字段。新的String类将根据字符串的内容存储编码为ISO-8859-1/Latin-1(每个字符一个字节)或UTF-16(每个字符两个字节)
+
+==== 结论
+String 不再用 char[] 来存储数据，改成了 byte[] 加上编码标记，节约了一些空间。
+
+=== 集合工厂方法：快速创建只读集合
+以前要创建一个只读、不可改变的集合，必须构造和分配它，然后添加元素，最后包装成一个不可修改的集合。
+----
+List<String> namesList = new ArrayList <>();
+namesList.add("Joe");
+namesList.add("Bob");
+namesList.add("Bill");
+namesList = Collections.unmodifiableList(namesList);
+System.out.println(namesList);
+----
+NOTE: 缺点：我们一下写了五行。即：它不能表达为单个表达式。
+
+Java 9因此引入了方便的方法，这使得类似的事情更容易表达。
+
+- List firsnamesList = List.of(“Joe”,”Bob”,”Bill”);
+
+调用集合中静态方法of()，可以将不同数量的参数传输到此工厂方法中。此功能可用于Set和List，也可用于Map的类似形式。此时得到的集合，是不可变的：在创建后，继续添加元素到这些集合会导致 “UnsupportedOperationException” 。由于Java 8中接口方法的实现，可以直接在List，Set和Map的接口内定义这些方法，便于调用。
+
+=== InputStream 加强
+InputStream 有了一个非常有用的方法：transferTo，可以用来将数据直接传输到 OutputStream，这是在处理原始数据流时非常常见的一种用法。
+
+.示例
+----
+ClassLoader cl = this.getClass().getClassLoader();
+try (InputStream is = cl.getResourceAsStream("hello.txt");
+OutputStream os = new FileOutputStream("src\\hello1.txt")) {
+is.transferTo(os); // 把输入流中的所有数据直接自动地复制到输出流中
+} catch (IOException e) {
+e.printStackTrace();
+}
+----
+
+=== 增强的 Stream API
+==== 概述
+- Java 的 Steam API 是java标准库最好的改进之一，让开发者能够快速运算，从而能够有效的利用数据并行计算。Java 8 提供的 Steam 能够利用多核架构实现声明式的数据处理。
+- 在 Java 9 中，Stream API 变得更好，Stream 接口中添加了 4 个新的方法：takeWhile, dropWhile, ofNullable，还有个 iterate 方法的新重载方法，可以让你提供一个 Predicate (判断条件)来指定什么时候结束迭代。
+- 除了对 Stream 本身的扩展，Optional 和 Stream 之间的结合也得到了改进。现在可以通过 Optional 的新方法 stream() 将一个 Optional 对象转换为一个(可能是空的) Stream 对象。
+
+==== 方法
+- takeWhile()：用于从Stream中获取一部分数据，接收一个Predicate来进行选择。在有序的Stream中，takeWhile**返回从开头开始的尽量多的元素**。
+- dropWhile()的使用：dropWhile 的行为与 takeWhile 相反，返回剩余的元素。
+- ofNullable()：Java 8 中 Stream 不能完全为null，否则会报空指针异常。而 Java 9 中的 ofNullable 方法可以创建一个单元素 Stream，可以包含一个非空元素，也可以创建一个空Stream。
++
+NOTE: Java 8 中 Stream 不能创建单个null，但可以创建多个null。
+- iterate()的重载：这个 iterate 方法的新重载方法，可以让你提供一个 Predicate (判断条件)来指定什么时候结束迭代。
++
+----
+// 原来的控制终止方式：
+Stream.iterate(1, i -> i + 1).limit(10).forEach(System.out::println);
+// 现在的终止方式：
+Stream.iterate(1, i -> i < 100, i -> i + 1).forEach(System.out::println);
+----
+
+=== Optional获取Stream的方法
+----
+List<String> list = new ArrayList<>();
+list.add("Tom");
+list.add("Jerry");
+list.add("Tim");
+Optional<List<String>> optional = Optional.ofNullable(list);
+Stream<List<String>> stream = optional.stream();
+stream.flatMap(x -> x.stream()).forEach(System.out::println);
+----
+
+=== Javascript引擎升级：Nashorn
+Nashorn 项目在 JDK 9 中得到改进，它为 Java 提供轻量级的 Javascript 运行时。Nashorn 项目跟随 Netscape 的 Rhino 项目，目的是为了在 Java 中实现一个高性能但轻量级的 Javascript 运行时。Nashorn 项目使得 Java 应用能够嵌入Javascript。它在 JDK 8 中为 Java 提供一个 Javascript 引擎。
+
+JDK 9 包含一个用来解析 Nashorn 的 ECMAScript 语法树的 API。这个 API 使得 IDE 和服务端框架不需要依赖 Nashorn 项目的内部实现类，就能够分析ECMAScript 代码。
+
+== Java 10 新特性
+=== 概述
+2018年3月21日，Oracle官方宣布Java10正式发布。 +
+JDK10一共定义了109个新特性，其中包含12个JEP（对于程序员来讲，真正的新特性其实就一个），还有一些新API和JVM规范以及JAVA语言规范上的改动。
+
+=== 局部变量类型推断
+====  产生背景
+开发者经常抱怨Java中引用代码的程度。局部变量的显示类型声明，常常被认为是不必须的，给一个好听的名字经常可以很清楚的表达出下面应该怎样继续。
+
+==== 好处
+减少了啰嗦和形式的代码，避免了信息冗余，而且对齐了变量名，更容易阅读！
+
+==== 推断的工作原理
+在处理 var时，编译器先是查看表达式右边部分，并根据右边变量值的类型进行推断，作为左边变量的类型，然后将该类型写入字节码当中。
+
+=== 注意点
+- var不是一个关键字。
+- var并不会改变Java是一门静态类型语言的事实。编译器负责推断出类型，并把结果写入字节码文件，就好像是开发人员自己敲入类型一样。
+
+==== 使用
+部分场景使用var替代类型声明。
+
+. 局部变量的初始化 +
+`var list = new ArrayList<>();`
+. 增强for循环中的索引
++
+----
+for(var v : list) {
+System.out.println(v);
+}
+----
+. 传统for循环中
++
+----
+for(var i = 0;i < 100;i++) {
+System.out.println(i);
+}
+----
+
+=== 不适用情况
+在局部变量中使用时，如下情况不适用：
+
+. 初始值为null
+. 方法引用
+. Lambda表达式
+. 为数组静态初始化
+
+不适用以下的结构中：
+
+. 没有初始化的局部变量声明
+. 方法的返回类型
+. 方法的参数类型
+. 构造器的参数类型
+. 属性
+. catch块
+
+=== 集合新增创建不可变集合的方法
+==== 概述
+自 Java 9 开始，Jdk 里面为集合（List / Set / Map）都添加了 of (jdk9新增)和copyOf (jdk10新增)方法，它们两个都用来创建不可变的集合。
+
+==== 方法说明
+----
+//示例1：
+var list1 = List.of("Java", "Python", "C");
+var copy1 = List.copyOf(list1);
+System.out.println(list1 == copy1); // true
+//示例2：
+var list2 = new ArrayList<String>();
+var copy2 = List.copyOf(list2);
+System.out.println(list2 == copy2); // false
+----
+从源码分析， 可以看出 copyOf 方法会先判断来源集合是不是AbstractImmutableList 类型的，如果是，就直接返回，如果不是，则调用 of 创建一个新的集合。
+
+示例2因为用的 new 创建的集合，不属于不可变 AbstractImmutableList 类的子类，所以 copyOf 方法又创建了一个新的实例，所以为false。
+
+== Java 11 新特性

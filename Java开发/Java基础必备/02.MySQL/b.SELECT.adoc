@@ -1,0 +1,613 @@
+= SELECT
+:source-highlighter: highlight.js
+:source-language: sql
+:toc: left
+:toc-title: SELECT
+:toclevels: 3
+:sectnums:
+
+== 基本的SELECT语句
+=== SELECT...
+----
+SELECT 1; #没有任何子句
+SELECT 9/2 FROM DUAL; #没有任何子句
+----
+
+=== SELECT ... FROM
+.语法
+----
+SELECT 标识选择哪些列
+FROM 标识从哪个表中选择
+----
+
+.选择全部列
+----
+SELECT *
+FROM departments;
+----
+
+NOTE: 在生产环境下，不推荐直接使用 SELECT * 进行查询。
+
+.选择特定的列
+----
+SELECT department_id, location_id
+FROM departments;
+----
+
+=== 列的别名
+- 重命名一个列
+- 便于计算
+- 紧跟列名，也可以在列名和别名之间加入关键字AS，别名使用双引号，以便在别名中包含空格或特殊的字符并区分大小写。
+- AS 可以省略
+- 建议别名简短，见名知意
+
+.例
+----
+SELECT last_name AS name, commission_pct comm
+FROM employees;
+
+SELECT last_name "Name", salary*12 "Annual Salary"
+FROM employees;
+----
+
+=== 去除重复行
+----
+SELECT DISTINCT department_id # distinct
+# 错误:SELECT salary, DISTINCT department_id
+# 不报错:SELECT DISTINCT department_id,salary
+FROM employees<1>
+FROM employees;
+----
+<1> 此种写法是对后面所有列名的**组合**进行去重
+
+=== 空值参与运算
+所有运算符或列值遇到null值，运算的结果都为null。
+
+IMPORTANT: null 不是 ' ' ，也不是 0
+
+=== 着重号
+表中的字段、表名等不能和保留字、数据库系统或常用方法冲突。如果相同，要使用一对``（着重号）引起来。
+
+=== 查询常数
+在 SELECT 查询结果中可以增加一列固定的常数列。这列的取值是我们指定的。
+
+.例
+----
+SELECT 'monster' as corporation, last_name FROM employees;
+----
+
+=== 显示表结构
+----
+DESCRIBE employees; # describe
+# 或
+DESC employees;
+----
+
+=== 过滤数据
+----
+SELECT 字段1,字段2
+FROM 表名
+WHERE 过滤条件
+----
+
+.例
+----
+SELECT employee_id, last_name, job_id, department_id
+FROM employees
+WHERE department_id = 90;
+----
+
+== 运算符
+=== 算数运算符
+[%header, cols="4*^.^"]
+|===
+|运算符|名称|作用|示例
+|+|加法运算符|计算两个值或表达式的和|SELECT A+B
+|-|减法运算符|计算两个值或表达式的差|SELECT A-B
+|*|乘法运算符|计算两个值或表达式的乘积|SELECT A*B
+|/或DIV|除法运算符|计算两个值或表达式的商|SELECT A/B 或 SELECT A DIV B
+|%或MOD|求模（求余）运算符|计算两个值或表达式的余数|SELECTA%B 或 SELECT A MOD B
+|===
+
+NOTE: MySQL中 `+` 只表示数值相加。如果遇到非数值类型，先尝试转成数值，如果转失败，就按0计算。（补充：MySQL中字符串拼接要使用字符串函数CONCAT()实现。）
+
+
+=== 比较运算符
+[%header, cols="3*^.^"]
+|===
+|运算符|名称|说明
+|=|等于运算符|
+|\<\=>|安全等于运算符|可比较NULL
+|<> 或 !=|不等于运算符|
+|<|小于运算符|
+|\<=|小于等于运算符|
+|>|大于运算符|
+|>=|大于等于运算符|
+|===
+NOTE: 以上除安全等于运算符外，其他一旦比较符两边有一个为NULL结果就为NULL。
+
+[%header, cols="2*^.^"]
+|===
+|运算符|名称|作用|示例
+|IS NULL|为空运算符
+|IS NOT NULL|不为空运算符
+|LEAST(least)|最小值运算符
+|GREATEST(greatest)|最大值运算符
+|BETWEEN ... AND ...|两值之间运算符
+|ISNULL|为空运算符
+|IN|属于运算符
+|NOT IN|不属于运算符
+|LIKE|模糊匹配运算符
+|REGEXP(regexp)|正则表达式运算符
+|RLIKE|正则表达式运算符
+|===
+
+- LIKE运算符：主要用来匹配字符串，通常用于模糊匹配，如果满足条件则返回1，否则返回0。如果给定的值或者匹配条件为NULL，则返回结果为NULL。
+* `%` 匹配0个或多个字符。
+* `_` 只能匹配一个字符。
+- REGEXP运算符：常用的有下面几种通配符：
+* `^` 匹配以该字符后面的字符开头的字符串。
+* `$` 匹配以该字符前面的字符结尾的字符串。
+* `.` 匹配任何一个单字符。
+* `[...]` 匹配在方括号内的任何字符。例如，`[abc]` 匹配“a”或“b”或“c”。为了命名字符的范围，使用一个 `-`。`[a-z]` 匹配任何字母，而 `[0-9]` 匹配任何数字。
+* `\*` 匹配零个或多个在它前面的字符。例如，`x*` 匹配任何数量的‘x’字符，`[0-9]*` 匹配任何数量的数字。
+
+
+=== 逻辑运算符
+[%header, cols="2*^.^"]
+|===
+|运算符|作用
+|NOT 或 !|逻辑非
+|AND 或 &&|逻辑与
+|OR 或 \|\||逻辑或
+|XOR|逻辑异或
+|===
+
+=== 位运算符
+[%header, cols="2*^.^"]
+|===
+|运算符|作用
+|&|按位与
+|\||按位或
+|^|按位异或
+|~|按位取反
+|>>|按位右移
+|<<|按位与左移
+|===
+
+== 排序与分页
+=== 排序
+----
+ORDER BY 字段 ASC/DESC<1>
+----
+
+<1> ASC（ascend）: 升序（默认为升序，可略写） +
+DESC（descend）:降序
+
+=== 分页
+----
+LIMIT [位置偏移量,] 行数<1>
+----
+<1> 偏移量为0时可略写
+
+== 多表查询
+=== 关于表的别名
+使用了表的别名，在查询字段中、过滤条件中就只能使用别名进行代替，不能使用原有的表名，否则就会报错。
+
+=== 分类
+==== 等值连接 vs 非等值连接
+===== 等值连接
+.例
+----
+SELECT employees.employee_id, employees.last_name,
+employees.department_id, departments.department_id,
+departments.location_id
+FROM employees, departments
+WHERE employees.department_id = departments.department_id;
+----
+
+===== 非等值连接
+如下例所示，EMPLOYEES表中的列工资应在JOB GRADES表中的最高工资与最低工资之间。
+
+.查询语句
+----
+SELECT e.last_name, e.salary, j.grade_level
+FROM employees e, job_grades j
+WHERE e.salary BETWEEN j.lowest_sal AND j.highest_sal;
+----
+.job_grades表
+----
++-------------+------------+-------------+
+| grade_level | lowest_sal | highest_sal |
++-------------+------------+-------------+
+| A           |       1000 |        2999 |
+| B           |       3000 |        5999 |
+| C           |       6000 |        9999 |
+| D           |      10000 |       14999 |
+| E           |      15000 |       24999 |
+| F           |      25000 |       40000 |
++-------------+------------+-------------+
+----
+.查询结果
+----
++-------------+----------+-------------+
+| last_name   | salary   | grade_level |
++-------------+----------+-------------+
+| King        | 24000.00 | E           |
+| Kochhar     | 17000.00 | E           |
+| De Haan     | 17000.00 | E           |
+| Hunold      |  9000.00 | C           |
+| Ernst       |  6000.00 | C           |
+| Austin      |  4800.00 | B           |
+| Pataballa   |  4800.00 | B           |
+| Lorentz     |  4200.00 | B           |
+                ...
+----
+
+==== 内连接(INNER JOIN) vs 外连接(OUTER JOIN)
+===== SQL92语法
+----
+#左外连接
+SELECT last_name,department_name
+FROM employees ,departments
+WHERE employees.department_id = departments.department_id(+);
+#右外连接
+SELECT last_name,department_name
+FROM employees ,departments
+WHERE employees.department_id(+) = departments.department_id;
+----
+NOTE: Oracle 对 SQL92 支持较好，而 MySQL 不支持 SQL92 的外连接。
+
+===== SQL99语法
+.内连接
+----
+SELECT table1.column, table2.column,table3.column
+FROM table1
+JOIN table2 ON table1 和 table2 的连接条件
+JOIN table3 ON table2 和 table3 的连接条件
+----
+
+.左/右外连接
+----
+SELECT 字段列表
+FROM A表 LEFT JOIN B表
+ON 关联条件
+WHERE 等其他子句;
+
+FROM A表 RIGHT JOIN B表
+ON 关联条件
+WHERE 等其他子句;
+----
+
+.满外连接
+----
+FULL JOIN
+----
+
+NOTE: SQL99是支持满外连接的。使用FULL JOIN 或 FULL OUTER JOIN来实现。但MySQL不支持FULL JOIN。
+
+===  UNION的使用
+合并查询结果：利用UNION关键字，可以给出多条SELECT语句，并将它们的结果组合成单个结果集。合并时，两个表对应的列数和数据类型必须相同，并且相互对应。各个SELECT语句之间使用UNION或UNIONALL关键字分隔。
+
+- UNION：UNION 操作符返回两个查询的结果集的并集，去除重复记录。
+- UNION ALL：UNION ALL操作符返回两个查询的结果集的并集。对于两个结果集的重复部分，不去重。
+
+NOTE: 建议使用UNION ALL。
+
+=== 7种SQL JOINS的实现
+image::images\\7种SQL JOINS的实现.png[align="center"]
+.正中图
+----
+# 内连接
+----
+.左中图
+----
+#实现A - A∩B
+select 字段列表
+from A表 left join B表
+on 关联条件
+where 从表关联字段 is null;
+----
+.右中图
+----
+#实现B - A∩B
+select 字段列表
+from A表 right join B表
+on 关联条件
+where 从表关联字段 is null;
+----
+.左下图
+----
+左上图
+UNION ALL
+右中图
+----
+.右下图
+----
+左中图
+UNION ALL
+右中图
+----
+
+=== SQL99语法新特性
+==== 自然连接
+----
+SELECT 字段1,字段2,字段3
+FROM 表1 NATURAL JOIN 表2; # natural join
+----
+
+可以把自然连接理解为 SQL92 中的等值连接。它会帮你自动查询两张连接表中 *所有相同的字段*，然后进行等值连接。
+
+==== USING连接
+----
+SELECT 字段1,字段2,字段3
+FROM 表1 t1 JOIN 表2 t2
+USING (两表同名字段);
+----
+
+使用 USING 指定数据表里的 同名字段 进行等值连接。但是只能配合JOIN一起使用。
+
+IMPORTANT: 我们要控制连接表的数量。多表连接就相当于嵌套 for 循环一样，非常消耗资源，会让 SQL 查询性能下降得很严重，因此不要连接不必要的表。在许多 DBMS 中，也都会有最大连接表的限制。
+
+== 单行函数
+=== 特点
+- 操作数据对象
+- 接受参数返回一个结果
+- 只对一行进行变换
+- 每行返回一个结果
+- 可以嵌套
+- 参数可以是一列或一个值
+
+=== 数值函数
+==== 基本函数
+[%header, cols="^.^1,^.^2,^.^1"]
+|===
+|函数|用法|小写
+|ABS(x)|返回x的绝对值|abs(x)
+|SIGN(x)|返回x的符号。正数返回1，负数返回-1,0返回0|sign(x)
+|PI()|返回圆周率的值|pi()
+|CEIL(x),CEILING(x)|返回大于或等于某个值的最小整数|ceil(x),ceiling(x)
+|FLOOR(x)|返回小于或等于某个值的最大整数|floor(x)
+|LEAST(e1,e2,e3...)|返回列表中的最小值|least(e1,e2,e3...)
+|GREATEST(e1,e2,e3...)|返回列表中的最大值|greatest(e1,e2,e3...)
+|MOD(x,y)|返回x除以y后的余数|mod(x,y)
+|RAND()|返回0~1的随机值|rand()
+|RAND(x)|返回0~1的随机值，其中x的值用作种子值，相同的x值会产生相同的随机数|rand(x)
+|ROUND(x)|返回一个对x的值进行四舍五入后，最接近于的整数|round(x)
+|ROUND(x,y)|返回一个对x的值进行四舍五入后最接近的值，并保留到小数点后面y位|round(x,y)
+|TRUNCATE(x,y)|返回数字x截断为y位小数的结果|truncate(x,y)
+|SQRT(x)|返回x的平方根。当X的值为负数时，返回NULL|sqrt(x)
+|===
+
+==== 角度与弧度互换函数[待补充...]
+
+==== 三角函数[待补充...]
+
+==== 指数与对数[待补充...]
+
+==== 进制间的转换
+[%header, cols="3*^.^"]
+|===
+|函数|用法|小写
+|BIN(x)|返回x的二进制编码|bin(x)
+|HEX(x)|返回x的十六进制编码|hex(x)
+|OCT(x)|返回x的八进制编码|oct(x)
+|CONV(x,f1,f2)|返回f1进制数变成2进制数|conv(x,f1,f2)
+|===
+
+=== 字符串函数
+[%header, cols="^.^1,^.^2,^.^1"]
+|===
+|函数|用法|小写
+|ASCII(s)|返回字符串s中的第一个字符的ASCII码值|ascii(s)
+|CHAR_LENGTH(s)|返回字符串s的字符数。作用与CHARACTER_LENGTH(s)相同|char_length(s)
+|LENGTH(s)|返回字符串s的字节数，和字符集有关|length(s)
+|CONCAT(s1,s2,.....sn)|连接s1,s2,sn为一个字符串|concat(s1,s2,.....sn)
+|CONCAT_WS(x,s1,s2,.....sn)|同CONCAT(s1,s2,.....sn)函数，但是每个字符串之间要加上×|concat_ws(x,s1,s2,.....sn)
+|INSERT(str,idx,len,replacestr)|将字符串str从第idx位置开始，len个字符长的子串替换为字符串replacestr|insert(str,idx,len,replacestr)
+|REPLACE(str,a,b)|用字符串b替换字符串str中所有出现的字符串a|replace(str,a,b)
+|UPPER(s)或UCASE(s)|将字符串s的所有字母转成大写字母|upper(s)或ucase(s)
+|LOWER(s)或LCASE(s)|将字符串s的所有字母转成小写字母|lower(s)或lcase(s)
+|LEFT(str,n)|返回字符串str最左边的n个字符|left(str,n)
+|RIGHT(str,n)|返回字符串str最右边的n个字符|right(str,n)
+|LPAD(str,len,pad)|用字符串pad对str最左边进行填充，直到str的长度为len个字符|lpad(str,len,pad)
+|RPAD(str,len,pad)|用字符串pad对str最右边进行填充，直到str的长度为len个字符|rpad(str,len,pad)
+|LTRIM(s)|去掉字符串s左侧的空格|ltrim(s)
+|RTRIM(s)|去掉字符串s右侧的空格|rtrim(s)
+|TRIM(s)|去掉字符串s开始与结尾的空格|trim(s)
+|TRIM(s1 FROM s)|去掉字符串s开始与结尾的s1|trim(s1 FROM s)
+|TRIM(LEADING s1 FROM s)|去掉字符串s开始处的s1|trim(leading s1 from s)
+|TRIM(TRAILING s1 FROM s)|去掉字符串s结尾处的s1|trim(trailing s1 from s)
+|REPEAT(str,n)|返回str重复n次的结果|repeat(str,n)
+|SPACE(n)|返回n个空格|space(n)
+|STRCMP(s1,s2)|比较字符串s1,s2的ASCII码值的大小|strcmp(s1,s2)
+|SUBSTR(s,index,len)|返回从字符串s的index位置其len个字符，作用与SUBSTRING(s,n,len)、MID(s,n,len)相同|substr(s,index,len)
+|LOCATE(substr,str)|返回字符串substr在字符串str中首次出现的位置，作用与POSITION(substr IN str)、INSTR(str,substr)相同。未找到，返回0|locate(substr,str)
+|ELT(m,s1,s2,...,sn)|返回指定位置的字符串，如果m=1,则返回s1,如果m=2,则返回s2,如果m=n,则返回sn|elt(m,s1,s2,...,sn)
+|FIELD(s,s1,s2,....sn)|返回字符串s在字符串列表中第一次出现的位置|field(s,s1,s2,....sn)
+|FIND_IN_SET(s1,s2)|返回字符串s1在字符串s2中出现的位置。其中，字符串s2是一个以逗号分隔的字符串|find_in_set(s1,s2)
+|REVERSE(s)|返回s反转后的字符串|reverse(s)
+|NULLIF(valuel,value2)|比较两个字符串，如果vaIue1与value2相等，则返回NULL,否则返回value1|nullif(valuel,value2)
+|===
+
+=== 日期和时间函数[待补充...]
+==== 获取日期、时间
+
+==== 日期与时间戳的转换
+
+==== 获取月份、星期、星期数、天数等函数
+
+==== 日期的操作函数
+
+==== 时间和秒钟转换的函数
+
+====  计算日期和时间的函数
+
+==== 日期的格式化与解析
+
+=== 流程控制函数
+[%header, cols="2*^.^"]
+|===
+|函数|用法
+|IF(value.value1.value2)|如果value的值为TRUE,返回value1,否则返回value2
+|IFNULL(value1,value2)|如果value1不为NULL,返回value1,否则返回value2
+|CASE WHEN 条件1 THEN 结果1 WHEN 条件2 THEN 结果2 ...[ELSE resultn]END|相当于Java的if...else...
+|CASE expr WHEN 常量值1 THEN 值1 WHEN 常量值1 THEN 值1 ...[ELSE 值n] END|相当于Java的switch...case...
+|===
+
+=== 加密与解密函数[待补充...]
+
+=== MySQL信息函数
+[%header, cols="^.^1,^.^2,^.^1"]
+|===
+|函数|用法|小写
+|VERSION()|返回当前MySOL的版本号|version()
+|CONNECTION_ID()|返回当前MySQL服务器的连接数|connection_id()
+|DATABASE(),SCHEMA()|返回MySQL命令行当前所在的数据库|database(),schema()
+
+|USER(),CURRENT_USER(),
+SYSTEM_USER(),SESSION_USER()
+|返回当前连接MySQL的用户名，返回结果格式为“主机名@用户名”
+|user(),current_user(),
+system_user(),session_user()
+
+|CHARSET(value)|返回字符串value自变量的字符集|charset(value)
+|COLLATION(value)|返回字符串value的比较规则|collation(value)
+|===
+
+=== 其他函数[待补充...]
+
+== 聚合函数
+=== 聚合函数介绍
+[%header, cols="2*^.^"]
+|===
+|函数|使用范围
+|AVG()|数值型数据
+|SUM()|数值型数据
+|MAX()|任意数据类型
+|MIN()|任意数据类型
+|COUNT()|任意数据类型
+|===
+
+[NOTE]
+====
+关于count(*)，count(1)，count(列名)：
+
+- 区别：count(*)会统计值为 NULL 的行，而 count(列名)不会统计此列为 NULL 值的行。
+
+- 使用哪个：对于MyISAM引擎的表是没有区别的。这种引擎内部有一计数器在维护着行数。Innodb引擎的表用count(*),count(1)直接读行数，复杂度是O(n)，因为innodb真的要去数一遍。但好于具体的count(列名)。
+====
+
+=== GROUP BY
+==== 用法
+NOTE: 多列分组逗号分隔。
+
+IMPORTANT: 在SELECT列表中所有未包含在组函数中的列一定要包含在 GROUP BY子句中，包含在 GROUP BY 子句中的列可以不包含在SELECT 列表中。
+
+==== GROUP BY中使用WITH ROLLUP
+使用 WITH ROLLUP 关键字之后，在所有查询出的分组记录之后增加一条记录，该记录计算查询出的所有记录的总和，即统计记录数量。
+
+=== HAVING
+==== 用法
+过滤分组：HAVING子句
+
+. 行已经被分组。
+. 使用了聚合函数。
+. 满足HAVING 子句中条件的分组将被显示。
+. HAVING 不能单独使用，必须要跟 GROUP BY 一起使用。
+
+==== WHERE和HAVING的对比
+- WHERE 可以直接使用表中的字段作为筛选条件，但不能使用分组中的计算函数作为筛选条件；HAVING 必须要与 GROUP BY 配合使用，可以把分组计算的函数和分组字段作为筛选条件。
+- 如果需要通过连接从关联表中获取需要的数据，WHERE 是先筛选后连接，而 HAVING 是先连接后筛选。这一点，就决定了在关联查询中，WHERE 比 HAVING 更高效。
++
+TIP: WHERE效率更高，故查询语句中优先使用WHERE
+
+=== SELECT的执行过程
+==== 查询的结构顺序
+----
+#方式1：
+SELECT ...,....,...
+FROM ...,...,....
+WHERE 多表的连接条件
+AND 不包含组函数的过滤条件
+GROUP BY ...,...
+HAVING 包含组函数的过滤条件
+ORDER BY ... ASC/DESC
+LIMIT ...,...
+#方式2：
+SELECT ...,....,...
+FROM ... JOIN ...
+ON 多表的连接条件
+JOIN ...
+ON ...
+WHERE 不包含组函数的过滤条件
+AND/OR 不包含组函数的过滤条件
+GROUP BY ...,...
+HAVING 包含组函数的过滤条件
+ORDER BY ... ASC/DESC
+LIMIT ...,...
+----
+
+==== 查询的执行顺序
+FROM -> WHERE -> GROUP BY -> HAVING -> SELECT 的字段 -> DISTINCT -> ORDER BY -> LIMIT
+
+==== 书写和执行顺序示例对比
+----
+SELECT DISTINCT player_id, player_name, count(*) as num # 顺序 5
+FROM player JOIN team ON player.team_id = team.team_id # 顺序 1
+WHERE height > 1.80 # 顺序 2
+GROUP BY player.team_id # 顺序 3
+HAVING num > 2 # 顺序 4
+ORDER BY num DESC # 顺序 6
+LIMIT 2 # 顺序 7
+----
+
+== 子查询
+=== 分类
+- 按内查询的结果返回一条还是多条记录，分为 单行子查询、多行子查询。
+- 按内查询是否被执行多次，分为 相关(或关联)子查询 和 不相关(或非关联)子查询 。
+
+=== 单行和多行子查询
+==== 单行比较操作符
+[%header, cols="1*^.^"]
+|===
+|操作符
+|=
+|>
+|>=
+|<
+|\<=
+|<>
+|===
+
+==== 多行比较操作符
+[%header, cols="2*^.^"]
+|===
+|操作符|含义
+|IN|等于列表种的任意一个
+|ANY|需要和单行比较操作符一起使用，和子查询返回的某一个值比较
+|ALL|需要和单行比较操作符一起使用，和子查询返回的所有值比较
+|SOME|ANY的别名
+|===
+
+=== 相关子查询
+如果子查询的执行依赖于外部查询，通常情况下都是因为子查询中的表用到了外部的表，并进行了条件关联，因此每执行一次外部查询，子查询都要重新计算一次，这样的子查询就称之为 关联子查询 。 +
+相关子查询按照一行接一行的顺序执行，主查询的每一行都执行一次子查询。
+
+==== 相关更新
+使用相关子查询依据一个表中的数据更新另一个表的数据。
+
+.示例：在employees中增加一个department_name字段，数据为员工对应的部门名称
+----
+# 1）
+ALTER TABLE employees
+ADD(department_name VARCHAR2(14));
+# 2）
+UPDATE employees e
+SET department_name = (SELECT department_name
+FROM departments d
+WHERE e.department_id = d.department_id);
+----
+
+==== 相关删除
+使用相关子查询依据一个表中的数据删除另一个表的数据。
