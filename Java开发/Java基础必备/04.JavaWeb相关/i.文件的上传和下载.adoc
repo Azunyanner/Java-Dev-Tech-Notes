@@ -1,0 +1,237 @@
+= 文件的上传和下载
+:source-highlighter: highlight.js
+:source-language: java
+:toc: left
+:toc-title: EL表达式&JSTL标签库
+:toclevels: 3
+:sectnums:
+
+== 上传
+=== 流程及要求
+. 要有一个 form 标签，必须是 post 请求
+. form 标签的 encType 属性值必须为 multipart/form-data 值
++
+NOTE: encType=multipart/form-data 表示提交的数据，以多段（每一个表单项一个数据段）的形式进行拼接，然后以二进制流的形式发送给服务器
+. 在 form 标签中使用 input type=file 添加上传的文件
+. 编写服务器代码（Servlet 程序）接收，处理上传的数据
+
+=== 所需jar包的说明
+==== 所需jar包
+`commons-fileupload-1.5.jar` ; `commons-io-2.13.0.jar` (前者需要依赖后者)
+
+IMPORTANT: fileupload类库目前仅支持tomcat10以下(Jakarta EE 10之前)版本。
+
+==== 用到的类和方法
+- `ServletFileUpload 类` 用于解析上传的数据
+* `isMultipartContent(HttpServletRequest request)` 静态方法 +
+判断当前上传的数据格式是否是多段的格式
+* `parseRequest(HttpServletRequest request)` +
+解析上传的数据
+- `FileItem 类` 表示每一个表单项
+* `isFormField()` +
+判断当前这个表单项，是普通的表单项(true)还是上传的文件类型(false)
+* `getFieldName()` +
+获取表单项的 name 属性值
+* `getString()` +
+获取当前表单项的值
+* `getName()` +
+获取上传的文件名
+* `void FileItem.write(file)` +
+将上传的文件写到 参数 file 所指向的硬盘位置
+
+=== 示例及使用
+[, jsp]
+----
+<form action="http://localhost:8080/rear_end/UpdateFileServlet" method="post" enctype="multipart/form-data">
+    用户名：<input type="text" name="username"><br>
+    用户密码：<input type="text" name="password"><br>
+    上传文件：<input type="file" name="update"><br>
+    <input type="submit" value="上传">
+</form>
+----
+----
+@Override
+protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    response.setCharacterEncoding("UTF-8");
+
+    // 判断请求是否为多段数据（文件上传数据）
+    if(ServletFileUpload.isMultipartContent(request)){
+        // 创建 DiskFileItemFactory 实例，用于处理文件上传
+        DiskFileItemFactory diskFileItemFactory = new DiskFileItemFactory();
+
+        // 创建 ServletFileUpload 实例，用于解析上传的数据
+        ServletFileUpload servletFileUpload = new ServletFileUpload(diskFileItemFactory);
+
+        try {
+            // 解析上传的数据，得到每一个表单项 FileItem
+            List<FileItem> list = servletFileUpload.parseRequest(request);
+
+            // 遍历每一个表单项
+            for (FileItem fileItem : list) {
+                if(fileItem.isFormField()){
+                    // 如果是普通表单项，处理表单字段
+                    String name = fileItem.getFieldName();
+                    String value = fileItem.getString("UTF-8");
+                    System.out.println("表单项：" + name + " - 值：" + value);
+                } else {
+                    // 如果是上传的文件，处理上传的文件
+                    String name = fileItem.getName();
+                    System.out.println("上传的文件名：" + name);
+
+                    // 构建文件保存路径，这里假设保存在 E:\\uploads\\ 目录下
+                    String uploadPath = "E:\\uploads\\";
+                    File uploadedFile = new File(uploadPath + name);
+
+                    // 将上传的文件保存到指定位置
+                    fileItem.write(uploadedFile);
+                    System.out.println("文件保存路径：" + uploadedFile.getAbsolutePath());
+                }
+            }
+        } catch (Exception e) {
+            // 捕捉异常并抛出运行时异常，以便统一处理
+            throw new RuntimeException(e);
+        }
+    }
+}
+----
+
+== 下载
+=== 流程
+. 获取要下载的文件名
+. 读取要下戴的文件内容
+. 把下载的文件内容回传给客户端
+. 在回传前，通过响应头告诉客户端返回的数据类型
+. 还要告诉客户端收到的数据是用于下载使用（还是使用响应头）
+
+=== 示例及使用
+----
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    // 1. 获取要下载的文件名
+    String downloadFileName = "2.jpg";
+
+    // 2. 获取 ServletContext 对象以读取文件内容
+    ServletContext servletContext = getServletContext();
+
+    // 3. 获取要下载文件的 MIME 类型
+    String mimeType = servletContext.getMimeType("/file/" + downloadFileName);
+    System.out.println("下载的文件类型：" + mimeType);
+
+    // 4. 设置响应内容类型为文件的 MIME 类型
+    resp.setContentType(mimeType);
+
+    // 5. 设置响应头，指示文件下载
+        // Content-Disposition 响应头，表示收到的数据怎么处理
+        // attachment 表示附件，表示下载使用
+        // filename= 表示指定下载的文件名
+    resp.setHeader("Content-Disposition", "attachment; filename=" + downloadFileName);
+
+    // 获取要下载文件的输入流
+    InputStream resourceAsStream = servletContext.getResourceAsStream("/file/" + downloadFileName);
+
+    // 获取响应的输出流
+    OutputStream outputStream = resp.getOutputStream();
+
+    // 6. 将文件内容从输入流复制到输出流，实现文件下载
+    IOUtils.copy(resourceAsStream, outputStream);
+}
+----
+
+=== 附件中文名乱码问题解决方案
+==== IE & Google
+----
+// 把中文名进行 UTF-8 编码操作。
+String str = "attachment; fileName=" + URLEncoder.encode("中文.jpg","UTF-8");
+// 然后把编码后的字符串设置到响应头中
+response.setHeader("Content-Disposition", str);
+----
+
+==== FireFox
+----
+// 使用下面的格式进行 BASE64 编码
+String str = "attachment; fileName=" + "=?utf-8?B?" + Base64.getEncoder().encodeToString("中文.jpg".getBytes("utf-8")) +"?=";
+// 设置到响应头中
+response.setHeader("Content-Disposition", str);
+----
+
+.FireFox编码原理
+火狐浏览器需要把请求头：`Content-Disposition: attachment; filename=中文名`，编码为 `Content-Disposition: attachment; filename==?charset?B?xxxxx?=`
+
+- =? 表示编码内容的开始
++
+IMPORTANT: 注意 `=?charset?B?xxxxx?=` 中开头的 `=` 不能省略，即filename后面是有两个 `=` 的
+- charset 表示字符集
+- B 表示 BASE64 编码
+- xxxx 表示文件名 BASE64 编码后的内容
+- ?= 表示编码内容的结束
+
+==== 通过请求头判断浏览器类型
+----
+//获得请求头
+String ua = request.getHeader("User-Agent");
+// 通过请求头是否包含“Firefox”来判断是否是火狐浏览器
+ua.contains("Firefox")
+----
+
+=== 解决乱码后的完整示例
+[, jsp]
+----
+<script>
+    var querySelector = document.querySelector("#imageSelect option:checked"); // 获取选项元素的标签内文本
+    window.onload = function (){
+        document.getElementById('downloadLink').onclick = function(event) {
+            var selectedOption = document.querySelector("#imageSelect option:checked");
+            var selectedText = selectedOption.textContent;
+            if (!confirm('您确定要下载图片[' + selectedText + ']吗？')) {
+                event.preventDefault(); // 取消默认的链接点击行为
+            }
+        }
+    }
+</script>
+
+<body>
+    <form action="http://localhost:8080/rear_end/DownloadServlet" method="get">
+        请选择下载图片：
+        <select name="downloadFileName" id="imageSelect">
+            <option >--下拉列表选择图片--</option>
+            <option value="miku.png">初音未来</option>
+            <option value="伊雷娜.png">伊雷娜</option>
+        </select>
+        <input type="submit" value="下载" id="downloadLink">
+    </form>
+</body>
+----
+----
+@Override
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+//        response.setCharacterEncoding("UTF-8");
+    // 1. 获取要下载的文件名
+    String downloadFileName = request.getParameter("downloadFileName");
+    // 2. 获取 ServletContext 对象以读取文件内容
+    ServletContext servletContext = getServletContext();
+    // 3. 获取要下载文件的 MIME 类型
+    String mimeType = servletContext.getMimeType("/file/" + downloadFileName);
+    // 4. 设置响应内容类型为文件的 MIME 类型
+    response.setContentType(mimeType);
+    // x.处理乱码问题
+    // x.1获取请求头
+    String ua = request.getHeader("User-Agent");
+    String str = null;
+    //x.2通过请求头判断浏览器类型
+    if (ua.contains("Firefox")){
+        //火狐浏览器设置base64编码
+        str = "attachment; filename=" + "=?utf-8?B?" + Base64.getEncoder().encodeToString(downloadFileName.getBytes("utf-8")) + "?=";
+    }else {
+        //其他浏览器设置utf-8编码
+        str = "attachment;filename=" + URLEncoder.encode(downloadFileName, "UTF-8");
+    }
+    // 5. 设置响应头，指示文件下载
+    response.setHeader("Content-Disposition", str);
+    // 获取要下载文件的输入流
+    InputStream resourceAsStream = servletContext.getResourceAsStream("/file/" + downloadFileName);
+    // 获取响应的输出流
+    ServletOutputStream outputStream = response.getOutputStream();
+    // 6. 将文件内容从输入流复制到输出流，实现文件下载
+    IOUtils.copy(resourceAsStream, outputStream);
+}
+----

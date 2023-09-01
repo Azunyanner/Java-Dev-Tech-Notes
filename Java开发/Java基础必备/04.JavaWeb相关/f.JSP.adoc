@@ -1,0 +1,260 @@
+= JSP
+:source-highlighter: highlight.js
+:source-language: jsp
+:toc: left
+:toc-title: JSP
+:toclevels: 3
+:sectnums:
+
+== 概述
+JSP全称Java Server Pages，是一种动态网页开发技术。它使用JSP标签在HTML网页中插入Java代码。标签通常以<%开头以%>结束。
+
+== 作用
+代替 Servlet 程序回传 html 页面的数据。因为 Servlet 程序回传 html 页面数据是一件非常繁锁的事情。开发成本和维护成本都极高。
+
+[discrete]
+=== Servlet 回传 html 示例
+----
+public class PringHtml extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,IOException {
+        // 通过响应的回传流回传 html 页面数据
+        resp.setContentType("text/html; charset=UTF-8");
+        PrintWriter writer = resp.getWriter();
+        writer.write("<!DOCTYPE html>\r\n");
+        writer.write(" <html lang=\"en\">\r\n");
+        writer.write(" <head>\r\n");
+        writer.write(" <meta charset=\"UTF-8\">\r\n");
+        writer.write(" <title>Title</title>\r\n");
+        writer.write(" </head>\r\n");
+        writer.write(" <body>\r\n");
+        writer.write(" 这是 html 页面数据 \r\n");
+        writer.write(" </body>\r\n");
+        writer.write("</html>\r\n");
+        writer.write("\r\n");
+    }
+}
+----
+
+== 本质
+jsp 页面本质上是一个 Servlet 程序。当我们第一次访问 jsp 页面的时候。Tomcat 服务器会帮我们把 jsp 页面翻译成为一个java 源文件。并且对它进行编译成为.class 字节码程序。启动tomcat项目时可以在控制台获得字节码文件存储的目录路径。
+
+NOTE: jsp继承了HttpJspBase类，而HttpJspBase又继承了HttpServlet类。
+
+
+== 语法
+=== jsp 头部的 page 指令
+jsp 的 page 指令可以修改 jsp 页面中一些重要的属性
+
+----
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+----
+
+.属性
+- *language:* 表示 jsp 翻译后是什么语言文件。暂时只支持java。
+- *contentType:* 表示 jsp 返回的数据类型是什么。也是源码中response.setContentType()参数值
+- *pageEncoding:* 表示当前 jsp 页面文件本身的字符集。
+- *import:* 跟 java 源代码中一样。用于导包，导类。
+- *autoFlush:* 设置当 out 输出流缓冲区满了之后，是否自动刷新冲级区。默认值是true。
+- *buffer:* 设置 out 缓冲区的大小。默认是 8kb
+- *errorPage:* 设置当 jsp 页面运行时出错，自动跳转去的错误页面路径。
+- *isErrorPage:* 设置当前 jsp 页面是否是错误信息页面。默认是false。如果是true可以获取异常信息。
+- *session:* 设置访问当前 jsp 页面，是否会创建HttpSession 对象。默认是true。
+- *extends:* 设置 jsp 翻译出来的 java 类默认继承谁。
+
+=== jsp 中的常用脚本
+==== 声明脚本(极少使用) `<%! %>`
+- 格式： `<%!声明 java 代码%>`
+- 作用：可以给 jsp 翻译出来的 java 类定义属性、方法、静态代码块和内部类等。
+
+.示例
+----
+<%!
+private Integer id;
+private String name;
+private static Map<String,Object> map;
+%>
+----
+
+==== 表达式脚本（常用） `<%= %>`
+- 格式： `<%=表达式%>`
+- 作用：在jsp 页面上输出数据。如整型，浮点型，字符串，对象。
+- 特点：
+* 所有的表达式脚本都会被翻译到_jspService() 方法中
+* 表达式脚本都会被翻译成为 out.print()输出到页面上
+* 由于表达式脚本翻译的内容都在_jspService() 方法中,所以_jspService()方法中的对象(如request, response)都可以直接使用。
+* 表达式脚本中的表达式不能以分号结束。
+
+==== 代码脚本 `<% %>`
+- 格式: `<%代码%>`
+- 作用：在 jsp 页面中，编写自己需要的功能（写的是java 语句）
+- 特点：
+* 代码脚本翻译之后都在_jspService 方法中
+* 代码脚本由于翻译到_jspService()方法中，所以在_jspService()方法中的现有对象都可以直接使用。
+* 还可以由多个代码脚本块组合完成一个完整的 java 语句。
+* 代码脚本还可以和表达式脚本一起组合使用，在 jsp 页面上输出数据
+
+.示例
+----
+<%
+    int i = 13;
+    if (i == 12) {
+%>
+        <h1><%=i%></h1>
+<%
+    } else {
+%>
+        <h1><%=-i%></h1>
+<%
+    }
+%>
+----
+
+=== jsp 中的三种注释
+==== html 注释
+----
+<!-- 这是 html 注释 -->
+----
+
+html 注释会被翻译到 java 源代码中。在_jspService 方法里，以 out.writer 输出到客户端。
+
+==== java 注释
+----
+<%
+// 单行 java 注释
+/* 多行 java 注释 */
+%>
+----
+
+java 注释会被翻译到 java 源代码中。
+
+==== jsp 注释
+----
+<%-- 这是 jsp 注释 --%>
+----
+
+jsp 注释可以注掉 jsp 页面中所有代码。
+
+== jsp 九大内置对象
+=== 内置对象
+jsp 中的内置对象，是指 Tomcat 在翻译 jsp 页面成为 Servlet 源代码后，内部提供的九大对象，叫内置对象。
+
+- request: 请求对象
+- response: 响应对象
+- pageContext: jsp的上下文对象
+- session: 会话对象
+- application: ServletContext对象
+- config: ServletConfig对象
+- out: jsp输出流对象
+- page: 指向当前jsp的对象
+- exception: 异常对象(该对象需要在头部page中将
+- isErrorPage属性设置为true才会出现)
+
+=== jsp 四大域对象
+==== 域对象
+- pageContext (PageContextImpl 类)——当前 jsp 页面范围内有效
+- request (HttpServletRequest 类)——一次请求内有效
+- session (HttpSession 类)——一个会话范围内有效（打开浏览器访问服务器，直到关闭浏览器）
+- application (ServletContext 类)——整个 web 工程范围内都有效（只要web 工程不停止，数据都在）
+
+==== 作用
+域对象是可以像 Map 一样存取数据的对象。四个域对象功能一样。不同的是它们对数据的存取范围。
+
+==== 优先顺序
+优先顺序分别是，他们从小到大的范围的顺序。
+
+pageContext > request > session > application
+
+=== out输出和response输出
+==== jsp 中的out 输出和response.getWriter输出的区别
+当jsp页面中所有代码执行完成后会做以下两个操作：
+
+. 执行out.flush0操作，会把out缓冲区中的数据追加写入到response:缓冲区末尾
+. 会执行response的刷新操作，把全部数据写给客户端
+
+如上操作会打乱页面输出内容的顺序。故统一**使用out输出**。
+
+==== out.print()和out.print()对比
+- out.write() 输出字符串没有问题，输出int类型数据时会将其转为char型，*变成对应的ascii码字符*。
+- out.print() 输出任意数据都没有问题（*都转换成为字符串后调用的 write 输出*）
+
+*综上所述，在 jsp 页面中，可以统一使用 out.print()来进行输出。*
+
+== jsp 的常用标签
+=== 静态包含 `<%@ include >`
+==== 格式
+`<%@ include file="/include/footer.jsp"%>`
+
+==== 说明
+- file 属性指定你要包含的 jsp 页面的路径
+- 地址中第一个斜杠 / 表示为 `http://ip:port/工程路径/` 映射到代码的web 目录
+
+==== 特点
+- 静态包含不会翻译被包含的 jsp 页面
++
+NOTE: 静态包含是在编译阶段处理的，包含的内容在页面输出之前就被合并了。
+- 静态包含其实是把被包含的 jsp 页面的代码拷贝到包含的位置执行输出
++
+NOTE: 包含的 JSP 页面的内容会被嵌入到包含它的 JSP 页面中，因此它们共享相同的上下文。
+
+==== 用途：
+静态包含适用于将公共的 HTML 结构、导航栏等内容提取为独立的 JSP 页面，然后在不同的页面中进行包含，以避免代码重复。
+
+=== 动态包含 `<jsp:include>`
+==== 格式
+----
+<jsp:include page="/include/footer.jsp">
+    <jsp:param name="username" value="bbj"/>
+    <jsp:param name="password" value="root"/>
+</jsp:include>
+----
+
+==== 说明
+- page 属性是指定要包含的 jsp 页面的路径
+- 动态包含也可以像静态包含一样。把被包含的内容执行输出到包含位置
+
+==== 特点
+- 动态包含会把包含的 jsp 页面也翻译成为 java 代码
++ 
+NOTE: 动态包含是在运行时处理的，包含的内容在页面输出时才会执行。
+- 动态包含底层代码使用如下代码去调用被包含的 jsp 页面执行输出。
++
+----
+JspRuntimeLibrary.include(request, response, "/include/footer.jsp", out,false);
+----
++
+NOTE: 包含的 JSP 页面的内容会在运行时执行，因此它们有各自独立的上下文。
+- 动态包含可以传递参数
+
+==== 用途
+动态包含适用于在页面运行时需要根据条件决定是否包含某个 JSP 页面，或者需要在包含的 JSP 页面中执行一些动态逻辑。
+
+=== 请求转发 `<jsp:forward>`
+==== 格式
+`<jsp:forward page="/scope2.jsp"></jsp:forward>`
+
+==== 作用
+请求转发 page 属性中设置的路径
+
+== 综合实例：在 jsp 页面中输出九九乘法口诀表
+----
+<h1 align="center">九九乘法口诀表</h1>
+<table align="center">
+    <%-- 外层循环遍历行 --%>
+<%
+    for (int i = 1; i <= 9; i++) {
+%>
+    <tr>
+        <%-- 内层循环遍历单元格 --%>
+<%
+        for (int j = 1; j <= i ; j++) {
+%>
+        <td><%=j + "*" + i + "=" + (i*j)%></td>
+<%      }
+%>
+    </tr>
+<%
+    }
+%>
+</table>
+----

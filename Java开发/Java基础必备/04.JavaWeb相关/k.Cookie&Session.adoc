@@ -1,0 +1,271 @@
+= Cookie&Session
+:source-highlighter: highlight.js
+:source-language: java
+:toc: left
+:toc-title: Cookie&Session
+:toclevels: 3
+:sectnums:
+
+== Cookie
+*以下java代码均在Servlet类中*
+
+=== 概述
+- Cookie 是服务器通知客户端保存键值对的一种技术
+- 客户端有了 Cookie 后，每次请求都发送给服务器
+- 每个 Cookie 的大小不能超过 4kb
+- Cookie支持中文和一些特殊符号，否则需要使用base64编码
+
+=== 创建 Cookie
+==== 流程
+. 服务器创建Cookie对象(`Cookie cookie = new Cookie("key1", "value1");`)
+. 服务器通知客户端保存Cookie(`resp.addCookie(cookie1);`)
+. 通过响应头 `Set-Cookie:key1=value1` 通知客户端保存Cookie
+. 客户端收到响应后发现 `Set-Cookie` 响应头，没有就创建，有就修改
+
+==== 代码实现
+----
+protected void createCookie(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+//1 创建 Cookie 对象
+    Cookie cookie = new Cookie("key4", "value4");
+//2 通知客户端保存 Cookie
+    resp.addCookie(cookie);
+//1 创建 Cookie 对象
+    Cookie cookie1 = new Cookie("key5", "value5");
+//2 通知客户端保存 Cookie
+    resp.addCookie(cookie1);
+    resp.getWriter().write("Cookie 创建成功");
+}
+----
+
+=== 服务器获取Cookie
+==== 流程
+. 客户端有Cookie
+. 通过请求头 `Cookie:key1=value1` 将Cookie信息发给服务器
+. 服务器获取Cookie数组 `Cookie[] cookies = req.getCookies();`
+
+==== 代码实现
+----
+protected void getCookie(HttpServletRequest req, HttpServletResponse resp) throwsServletException,IOException {
+    Cookie[] cookies = req.getCookies();
+    for (Cookie cookie : cookies) {
+// getName 方法返回 Cookie 的 key（名）
+// getValue 方法返回 Cookie 的 value 值
+        resp.getWriter().write("Cookie[" + cookie.getName() + "=" + cookie.getValue()+"]<br/>");}
+    Cookie iWantCookie = CookieUtils.findCookie("key1", cookies);
+// for (Cookie cookie : cookies) {
+// if ("key2".equals(cookie.getName())) {
+// iWantCookie = cookie;
+// break;
+// }
+// }
+// 如果不等于 null，说明赋过值，也就是找到了需要的 Cookie
+    if (iWantCookie != null) {
+        resp.getWriter().write("找到了需要的 Cookie");
+    }
+}
+----
+
+==== 获取指定Cookie的工具类
+----
+public class CookieUtils {
+    /**
+     * 查找指定名称的 Cookie 对象
+     * @param name
+     * @param cookies
+     * @return
+     */
+    public static Cookie findCookie(String name , Cookie[] cookies){
+        if (name == null || cookies == null || cookies.length == 0) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie;
+            }
+        }
+        return null;
+    }
+}
+----
+
+=== 修改Cookie值
+==== 方案一
+. 先创建一个要修改的同名(指的就是 key)的 Cookie 对象
+. 在构造器，同时赋于新的 Cookie 值
+. 调用 `response.addCookie( Cookie );`
+----
+// 1、先创建一个要修改的同名的 Cookie 对象
+// 2、在构造器，同时赋于新的 Cookie 值。
+Cookie cookie = new Cookie("key1","newValue1");
+// 3、调用 response.addCookie( Cookie ); 通知 客户端 保存修改
+resp.addCookie(cookie);
+----
+
+==== 方案二
+. 先查找到需要修改的 Cookie 对象
+. 调用 `setValue()` 方法赋于新的 Cookie 值
+. 调用 `response.addCookie()` 通知客户端保存修改
+----
+// 1、先查找到需要修改的 Cookie 对象
+Cookie cookie = CookieUtils.findCookie("key2", req.getCookies());
+if (cookie != null) {
+    // 2、调用 setValue()方法赋于新的 Cookie 值。
+    cookie.setValue("newValue2");
+    // 3、调用 response.addCookie()通知客户端保存修改
+    resp.addCookie(cookie);
+}
+----
+
+=== 浏览器查看Cookie
+==== Google
+F12按键 -> 顶部栏:应用 -> 侧边栏:存储 -> 选项Cookie
+
+==== FireFox
+F12按键 -> 顶部栏:存储 -> 选项Cookie
+
+=== Cookie 生命控制
+==== 概念
+Cookie 的生命控制指的是如何管理 Cookie 什么时候被销毁（删除）
+
+==== 参数
+- setMaxAge()
+* 正数: 表示在指定的秒数后过期
+* 负数: 表示浏览器关闭后，Cookie 就会被删除（默认值是-1）
+* 0: 表示马上删除 Cookie
+
+==== 代码实现
+.存活一小时的Cookie
+----
+Cookie cookie = new Cookie("life3600", "life3600");
+cookie.setMaxAge(60 * 60); // 设置 Cookie 一小时之后被删除。无效
+resp.addCookie(cookie);
+resp.getWriter().write("已经创建了一个存活一小时的 Cookie");
+----
+.立马删除Cookie
+----
+// 先找到你要删除的 Cookie 对象
+Cookie cookie = CookieUtils.findCookie("key4", req.getCookies());
+if (cookie != null) {
+    // 调用 setMaxAge(0);
+    cookie.setMaxAge(0); // 表示马上删除，都不需要等待浏览器关闭
+    // 调用 response.addCookie(cookie);
+    resp.addCookie(cookie);
+    resp.getWriter().write("key4 的 Cookie 已经被删除");
+}
+----
+.默认的会话级别Cookie
+----
+Cookie cookie = new Cookie("defalutLife","defaultLife");
+cookie.setMaxAge(-1);//设置存活时间
+resp.addCookie(cookie);
+----
+
+=== Cookie有效路径Path的设置
+==== 概述
+- Cookie 的 path 属性可以有效的过滤哪些 Cookie 可以发送给服务器。
+- path 属性是通过请求的地址来进行有效的过滤。
+
+===== 示例
+- CookieA: `path=/工程路径`
+- CookieB: `path=/工程路径/abc`
+
+请求地址如下：
+
+- `http://ip:port/工程路径/a.html`
+* CookieA 发送
+* CookieB 不发送
+- `http://ip:port/工程路径/abc/a.html`
+* CookieA 发送
+* CookieB 发送
+
+==== 创建带有Path的Cookie
+----
+Cookie cookie = new Cookie("path1", "path1");
+// getContextPath() ===>>>> 得到工程路径
+cookie.setPath( req.getContextPath() + "/abc" ); // ===>>>> /工程路径/abc
+resp.addCookie(cookie);
+resp.getWriter().write("创建了一个带有 Path 路径的 Cookie");
+----
+
+=== 利用Cookie免输入用户名登录
+.login.jsp 页面
+[,jsp]
+----
+<form action="http://localhost:8080/13_cookie_session/loginServlet" method="get">
+    用户名：<input type="text" name="username" value="${cookie.username.value}"> <br>
+    密码：<input type="password" name="password"> <br>
+    <input type="submit" value="登录">
+</form>
+----
+.LoginServlet 程序
+----
+String username = req.getParameter("username");
+String password = req.getParameter("password");
+if ("wzg168".equals(username) && "123456".equals(password)) {
+    //登录 成功
+    Cookie cookie = new Cookie("username", username);
+    cookie.setMaxAge(60 * 60 * 24 * 7);//当前 Cookie 一周内有效resp.addCookie(cookie);
+    System.out.println("登录 成功");
+} else {
+    // 登录 失败
+    System.out.println("登录 失败");
+}
+----
+
+== Session
+=== 概述
+- Session 就是一个接口(HttpSession)
+- Session 就是会话。它是用来维护一个客户端和服务器之间关联的一种技术
+- 每个客户端都有自己的一个 Session 会话
+- Session 会话中，我们经常用来保存用户登录之后的信息
+
+=== 创建 Session 和获取id 号,判断是否为新
+----
+//创建
+HttpSession session = request.getSession();
+//唯一id
+String id = session.getId();
+//检测是否是新创建的
+boolean aNew = session.isNew();
+response.getWriter().write("session id:" + id + ",isNew:" + aNew);
+----
+
+=== Session 域数据的存取
+----
+protected void setAttribute(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    //Session 域数据的存储
+    request.getSession().setAttribute("username", "Monster");
+    response.getWriter().write("setAttribute成功");
+}
+protected void getAttribute(HttpServletRequest request, HttpServletResponse response) throws IOException {
+//Session获取域数据
+    Object username = request.getSession().getAttribute("username");
+    response.getWriter().write("获取域数据username：" + username);
+}
+----
+
+=== Session 生命周期控制
+==== 相关参数
+- `public void setMaxInactiveInterval(int interval)`: 设置 Session 的超时时间（以秒为单位），超过指定的时长，Session就会被销毁。
+* 值为正数: 设定 Session 的超时时长
+* 值为负数: 表示永不超时（极少使用）
+- `public int getMaxInactiveInterval()`: 获取 Session 的超时时间
+- `public void invalidate()`: 让当前 Session 会话马上超时无效
+
+==== Session默认超时时长
+Session 默认的超时时间长为 30 分钟。
+
+可在web.xml中配置
+----
+<session-config>
+    <session-timeout>30</session-timeout>
+</session-config>
+----
+
+==== 超时时长的概念
+session的超时指的是客户端两次请求的最大间隔时长。只要在最大间隔内有访问，时长就会被刷新
+
+=== 浏览器和 Session 之间关联的技术内幕
+Session 技术底层其实是基于 Cookie 技术来实现的
+
+image::images\\_k.浏览器和Session之间关联的技术内幕.png[align="center"]

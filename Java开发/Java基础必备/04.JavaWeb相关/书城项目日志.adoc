@@ -1,0 +1,998 @@
+= 书城项目日志
+:source-highlighter: highlight.js
+:source-language: java
+:toc: left
+:toc-title: 书城项目日志
+:toclevels: 3
+:sectnums:
+
+== 第一阶段 表单验证
+=== 流程
+* 注册页码验证
+- 验证用户名：使用正则表达式
+- 验证密码：使用正则表达式
+- 验证确认密码：和密码相同
+- 邮箱验证：使用正则表达式
+- 验证码：现阶段检测验证码不为空即可(注意去除收尾空格)
+* 登录页码验证
+- 验证用户名：使用正则表达式
+- 验证密码：使用正则表达式
+
+== 第二阶段 用户注册和登陆
+=== JavaEE 项目的三层架构
+- web 层: web/servlet/controller
+- service 层: service Service; service.impl
+- dao 持久层: dao; dao.impl
+- 实体bean 对象: pojo/entity/domain/bean
+- 测试包: test/junit
+- 工具类: utils
+
+=== 流程
+. 准备数据库
+. 编写JavaBean对象
+. 编写工具类(JDBCUtils)
+. 编写BaseDAO
+. 编写UserDAO及其实现类; 测试
+. 编写UserService及其实现类; 测试
+. 编写web层
+
+[discrete]
+==== 工具类 JDBCUtils
+.JDBCUtils工具类 获取数据库连接部分
+----
+private static DataSource source;
+
+// 静态代码块在类加载时初始化 DataSource
+static {
+    try {
+        // 创建一个 Properties 对象来保存配置信息
+        Properties properties = new Properties();
+        // 通过系统类加载器从类路径读取名为 "druid.properties" 的配置文件
+        InputStream is = JDBCUtils.class.getClassLoader().getResourceAsStream("jdbc.properties");<1>
+        properties.load(is);
+        // 使用配置信息创建 DataSource
+        source = DruidDataSourceFactory.createDataSource(properties);
+    } catch (Exception e) {
+        throw new RuntimeException(e);
+    }
+
+}
+
+// 从初始化的 DataSource 获取数据库连接
+public static Connection getConnection() {
+    Connection connection = null;
+    try {
+        connection = source.getConnection();
+        return connection;
+    } catch (SQLException e) {
+        throw new RuntimeException(e);
+    }
+}
+----
+<1> *注意一定要用当前类的类加载器(`JDBCUtils.class.getClassLoader()`)，不能使用系统类加载器(`ClassLoader.getSystemClassLoader()`)！！*否则在web层运行会报错
+
+[discrete]
+==== web层
+.修改 regist.html 和 regist_success.html 页面
+- 添加base标签并修改页面内路径，以使用相对路径
+- 表单使用post请求；修改表单提交地址
+
+.编写 RegistServlet 程序
+. 获取请求参数
+. 检查验证码是否正确
+.. 正确：检查用户名是否可用
+... 可用：调用业务层相应方法注册用户，保存用户信息到数据库；请求转发到注册成功页面
+... 不可用：控制台打印错误信息；请求转发回注册页面
+.. 不正确：控制台打印错误信息；请求转发回注册页面
+
+.编写 LoginServlet 程序
+. 获取请求参数
+. 调用业务层相应方法获取用户信息
+. 判断用户信息是否获取成功
+.. 获取成功：控制台打印成功信息；请求转发到登录成功页面
+.. 获取失败：控制台打印失败信息；请求转发回登录页面
+
+== 第三阶段
+=== 页面 jsp 动态化
+. 在 html 页面顶行添加 page 指令。
+. 修改文件后缀名为：.jsp
+. 使用 IDEA 搜索替换.html 为.jsp(快捷键：Ctrl+Shift+R)
+
+=== 抽取页面中相同的内容
+使用静态包含标签 `<%@include file="" %>` 抽取页面相同内容
+
+==== 注意点
+NOTE: 提取出来的页面中的路径仍然按照原先页面中base标签指定的url填写即可，不必理会ieda中的警告“无法解析路径”
+
+=== base标签的地址动态获取
+[, jsp]
+----
+<%
+    String basePath = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/";
+%>
+<base href="<%=basePath%>">
+----
+
+=== 登录，注册错误提示，及表单回显
+将错误提示和需要表单回显的数据存储到request域中，即可调用用于错误提示和表单回显
+
+=== BaseServlet 的抽取
+. 在表单中使用**隐藏标签**，记录请求的操作(记录在value中，value值与对应方法名相同)
+. 创建UserServlet，将RegisterServlet和LoginServlet类合并入其中
+- **提取出注册和登录**操作为regist和login方法；在doPost方法中通过获取隐藏标签传入的参数值，通过**反射**获取并调用对应方法(regist和login)
+. 将UserServlet中的doPost方法提取出来，新建**BaseServlet抽象类**，UserServlet继承BaseServlet
+
+=== BeanUtils 的使用 数据的封装和抽取
+==== jar包导入及依赖关系
+`commons-beanutils-1.9.4.jar` 依赖于 `commons-collections4-4.4.jar` 和 `commons-logging-1.2.jar`
+
+==== 作用
+BeanUtils 工具类可以一次性的把所有请求的参数注入到 JavaBean 中。经常用于把 Map 中的值注入到 JavaBean 中，或者是对象属性值的拷贝操作。
+
+==== 使用实例
+----
+/**
+ * 一个工具类，用于将请求参数映射到 JavaBean 对象中。
+ */
+public class WebUtils {
+
+    /**
+     * 将请求参数映射到 JavaBean 对象中。
+     *
+     * @param value 包含请求参数的 Map，通常是从 HttpServletRequest.getParameterMap() 获取的。
+     * @param bean  要填充数据的目标 JavaBean 对象。
+     * @param <T>   JavaBean 对象的类型。
+     * @return 填充了请求参数的 JavaBean 对象。
+     * @throws RuntimeException 如果在映射过程中发生异常，则抛出 RuntimeException。
+     */
+    public static <T> T copyParamToBean(Map value, T bean) {
+        try {
+            // 使用 Apache Commons BeanUtils 库的 BeanUtils.populate() 方法，
+            // 将请求参数映射到 JavaBean 对象中。
+            BeanUtils.populate(bean, value);
+            return bean;
+        } catch (Exception e) {
+            // 如果发生异常，将异常包装为 RuntimeException 并重新抛出。
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+----
+
+== 第四阶段 错误提示和表单回显**改用EL表达式**
+注意EL表达式中的值为null时默认返回的就是空串 `""` ，不需要使用三元运算符判断是否为空
+
+== 第五阶段 图书模块
+=== MVC 概念
+==== 全称
+MVC 全称：Model 模型、 View 视图、 Controller 控制器
+
+==== 说明
+MVC 最早出现在 JavaEE 三层中的 Web 层，它可以有效的指导 Web 层的代码如何有效分离，单独工作。
+
+- **View 视图：**只负责数据和界面的显示，不接受任何与显示数据无关的代码，便于程序员和美工的分工合作——*JSP/HTML*。
+- **Controller 控制器：**只负责接收请求，调用业务层的代码处理请求，然后派发页面，是一个“调度者”的角色——*Servlet*。转到某个页面，或者是重定向到某个页面。
+- **Model 模型：**将与业务逻辑相关的数据封装为具体的 JavaBean 类，其中不掺杂任何与数据处理相关的代码——*JavaBean/domain/entity/pojo*。
+
+==== 目的
+MVC 是一种思想，MVC 的理念是将软件代码拆分成为组件，单独开发，组合使用（目的是为了降低耦合度）。
+
+=== 图书模块 dao,service层
+编写图书的数据库表、JavaBean、DAO层接口及其实现类、Service层接口及其实现类；测试两个实现类
+
+=== 图书模块 web层
+==== BookServlet
+*总体访问页面的流程是：页面涉及到数据库数据时，先访问servlet，再请求转发或重定向回该页面。*
+
+.BookServlet 中的方法
+- add 添加图书
+- delete 删除图书
+- update 修改图书信息
+- getBook 获取指定图书
+- list 获取图书列表
+
+.注意事项
+重定向时需要按照浏览器路径来算，斜杠/是到端口号，需要自行添加工程名： `request.getContextPath()`
+----
+response.sendRedirect( request.getContextPath() + "/manager/BookServlet?action=list");
+----
+
+==== jsp页面
+- 路径改为manager/BookServlet，放在manager下是为了将来做权限设置。注意在url中添加action参数和属性
++
+[,jsp]
+----
+href="manager/BookServlet?action=delete&id=${book.id}"
+----
+- 删除、添加图书设置二次确认
++
+[,javascript]
+----
+$(function (){
+    $(".deleteClass").click(function (){
+        var bookName = $(this).parent().parent().find(":first").text();
+        return (confirm('您确定要删除《' + bookName + '》吗？'));
+    })
+})
+----
+
+==== 关于一个表单如何区分添加/修改图书的方法
+- 可以在转发时添加参数(参数值写为方法名)，使用 `param.属性` 的方式获得方法名即可。
+- 或通过判断 `param.id` 是否为空来判断，为空什么是添加，不为空是修改。
++
+----
+<input type="hidden" name="action" value="${empty param.id?"add":"update"}">
+----
+
+=== 图书分页
+==== 分页模块分析
+.分页对象模型 Page类
+[%header, cols="2*^.^"]
+|===
+|属性|说明
+|pageNo|当前页码
+|pageTotal|总页码
+|pageTotalCount|总记录数
+|pageSize|每页显示数量
+|items|当前页数据
+|===
+
+.BookServlet程序的page方法 处理分页 
+. 获取请求的参数 pageNo 和 pageSize
+. 调用 BookService.page(pageNo, pageSize) 获得 Page 对象
+. 保存 Page 对象到request域中
+. 请求转发到 book_manager.jsp 页面
+
+.BookService程序的page方法 处理分页业务
+调用 BookDAO 的 queryForPageTotalCount() 和 queryForItems() 方法，求得pageTotalCount、pageTotal、items
+----
+pageTotal = pageTotalCount/pageSize
+if(pageTotalCount%pageSize>0){pageTotal++}
+----
+.BookDAO程序
+- `queryForPageTotalCount()` 求总记录数 `select count(*) from t_book`
+- `queryForItems(pageNo, pageSize)` 求当前页数据 `select * from t_book limint begin, pageSize`
+* `begin = (pageNo-1) * pageSize`
+
+==== 涉及的小点
+===== 指定页码跳转
+- 输入数字，点击按钮跳转到指定页面
+* location.href 是 JavaScript 中的一个属性，用于获取或设置当前页面的 URL 地址。它通常用于在 JavaScript 中进行页面跳转或重定向操作。
+* 注意使用动态地址，可以将之前设置的动态地址存到pageContext域来调用
+- 页面跳转要注意控制页码的有效边界。
+
+.示例
+[,javascript]
+----
+//绑定按钮单击事件
+$("#searchPageBtn").click(function (){
+                var pageNo = $("#pn_input").val();//获取输入的值
+                //有效边界控制
+                if (pageNo <= 1){
+                    pageNo = 1;
+                }else if (pageNo >= ${requestScope.page.pageTotal}){
+                    pageNo = ${requestScope.page.pageTotal};
+                }
+                //location.href设置地址栏路径
+                location.href = "${pageScope.basePath}manager/BookServlet?action=page&pageNo=" + pageNo;
+            })
+----
+
+===== dbutils类库查询一行一列数据的注意点
+在下面这段代码中，queryForValue 方法返回的结果是一个 Number 类型，因为 ScalarHandler 将查询结果转换为泛型参数类型。由于泛型的范围广泛，可能包括 Long、Integer、Double 等类型，所以 queryForValue 方法将结果统一返回为 Number 类型，以应对不同类型的查询结果。
+----
+public Object queryForValue(String sql, Object...args){
+    Connection connection = JDBCUtils.getConnection();
+    try {
+        return queryRunner.query(connection, sql, new ScalarHandler(), args);
+    } catch (SQLException e) {
+        throw new RuntimeException(e);
+    }finally {
+        JDBCUtils.close(connection);
+    }
+}
+
+@Override
+public Integer queryForPageTotalCount() {
+    String sql = "select count(*) from t_book";
+    Number count = (Number) queryForValue(sql);<1>
+    return count.intValue();
+}
+----
+
+<1> 此处需要强转成Number再使用intValue方法。直接转成Integer会报错
+
+===== 分页条的设计
+参考以下通用方法，已提取为公共页面，静态包含
+[, jsp]
+----
+<div id="page_nav">
+  <a href="${requestScope.page.url}&pageNo=1">首页</a>
+  <c:if test="${requestScope.page.pageNo <= 1}">
+    <a href="${requestScope.page.url}&pageNo=1">上一页</a>
+  </c:if>
+  <c:if test="${requestScope.page.pageNo > 1}">
+    <a href="${requestScope.page.url}&pageNo=${requestScope.page.pageNo-1}">上一页</a>
+  </c:if>
+  <c:choose>
+    <c:when test="${requestScope.page.pageTotal <= 5}">
+      <c:set var="begin" value="1"/>
+      <c:set var="end" value="${requestScope.page.pageTotal}"/>
+    </c:when>
+    <c:when test="${requestScope.page.pageTotal > 5}">
+      <c:choose>
+        <c:when test="${requestScope.page.pageNo <= 3}">
+          <c:set var="begin" value="1"/>
+          <c:set var="end" value="5"/>
+        </c:when>
+        <c:when test="${requestScope.page.pageNo > requestScope.page.pageTotal-3}">
+          <c:set var="begin" value="${requestScope.page.pageTotal-4}"/>
+          <c:set var="end" value="${requestScope.page.pageTotal}"/>
+        </c:when>
+        <c:otherwise>
+          <c:set var="begin" value="${requestScope.page.pageNo-2}"/>
+          <c:set var="end" value="${requestScope.page.pageNo+2}"/>
+        </c:otherwise>
+      </c:choose>
+    </c:when>
+  </c:choose>
+  <c:forEach begin="${begin}" end="${end}" var="i">
+    <c:if test="${i == requestScope.page.pageNo}">
+      <a>【${i}】</a>
+    </c:if>
+    <c:if test="${i != requestScope.page.pageNo}">
+      <a href="${requestScope.page.url}&pageNo=${i}">${i}</a>
+    </c:if>
+  </c:forEach>
+
+
+  <c:if test="${requestScope.page.pageNo >= requestScope.page.pageTotal}">
+    <a href="${requestScope.page.url}&pageNo=${requestScope.page.pageTotal}">下一页</a>
+  </c:if>
+  <c:if test="${requestScope.page.pageNo < requestScope.page.pageTotal}">
+    <a href="${requestScope.page.url}&pageNo=${requestScope.page.pageNo+1}">下一页</a>
+  </c:if>
+  <a href="${requestScope.page.url}&pageNo=${requestScope.page.pageTotal}">末页</a>
+  共${requestScope.page.pageTotal}页，${requestScope.page.pageTotalCount}条记录
+  到第<input value="${requestScope.page.pageNo}" name="pn"
+             id="pn_input"/>页
+  <input id="searchPageBtn" type="button" value="确定">
+</div>
+
+//绑定单击事件
+<script>
+    $("#searchPageBtn").click(function () {
+      var pageNo = $("#pn_input").val();
+
+      location.href = "${pageScope.basePath}${requestScope.page.url}&pageNo=" + pageNo;
+    })
+</script>
+----
+
+===== 首页index.jsp 的跳转
+访问首页需要事先跳转到servlet中获取分页数据，为避免首页网址是servlet地址，将首页内容移至client目录下，原首页只负责请求转发到service分页程序中。
+
+===== 按照价格区间显示数据以及分页
+- 与原本分页基本一样，原分页模块基础上设计即可，只是sql语句和对应方法多了min和max值。
+- 注意在servlet中处理 min > max 或 min < 0 或 max < 0的问题。
++
+.参考
+----
+int min = WebUtils.parseInt(request.getParameter("min"), 0);
+int max = WebUtils.parseInt(request.getParameter("max"), Integer.MAX_VALUE);
+//min > max 或 min < 0 或 max < 0时，一律设置min和max为WebUtils.parseInt一样的默认值，避免了负数和最小值大于最大值的同时避免回显默认值
+if (min > max || min < 0 || max < 0) {
+    min = 0;
+    max = Integer.MAX_VALUE;
+}
+Page page = bookService.pageByPrice(pageNo, pageSize, min, max);
+page.setUrl("client/ClientBookServlet?action=pageByPrice&min=" + min + "&max=" + max);
+request.setAttribute("page", page);
+
+//max == Integer.MAX_VALUE即价格区间的两个值都为空时的默认的max值，此时设置域中的min和max为null，避免回显默认值
+if (max == Integer.MAX_VALUE) {
+    request.setAttribute("min", null);
+    request.setAttribute("max", null);
+} else {
+    request.setAttribute("min", min);
+    request.setAttribute("max", max);
+}
+----
+
+== 第六阶段
+=== 登录后显示用户名
+- 将用户名存储在session域中，在登录后显示用户名+欢迎语
+
+=== 注销登录
+- 写注销的servlet程序(删除session域中信息，重定向到首页)
+- 写if语句，注销后不显示欢迎语和注销按钮，换为登录按钮
+
+=== 验证码 解决表单重复提交问题
+==== 表单重复提交常见情况及解决方法
+- 提交完表单，服务器使用**请求转发**进行页面跳转。这时用户**刷新页面**会重复发起最后一次的请求，造成表单重复提交。
+* 解决方法：使用**重定向**来进行跳转
+- 用户正常提交服务器，但是由于网络延迟等原因，迟迟未收到服务器的响应，这时用户以为提交失败，**多次点击**提交，造成表单重复提交。
+* 解决方法：使用**验证码**
+- 用户正常提交服务器，服务器也没有延迟。但是提交完成后，用户点击**回退页面**，会重新提交造成表单重复提交。
+* 解决方法：使用**验证码**
+
+==== 验证码解决表单重复提交原理
+. 用户第一次访问表单时：
+.. 验证码程序为表单生成一个随机验证码并保存到session域中，然后将验证码图片显示在表单页面
+.. 用户输入验证码提交表单时，程序会获取验证码并将session域中的验证码删除
+.. 程序获取表单项信息中用户输入的验证码和获取的session中验证码是否相等
+* 相等-登录
+* 不相等-阻止登录
+. 用户再次提交表单时：
+. 此时session中的验证码为null，与表单项中用户输入的验证码相比不符，阻止登录
+
+==== *谷歌 kaptcha 图片验证码的使用*
+*需要导入谷歌验证码的 jar 包 `kaptcha-2.3.2.jar`*
+
+===== 流程
+.在 web.xml 中去配置用于生成验证码的 Servlet 程序
+[,xml]
+----
+<servlet>
+  <servlet-name>KaptchaServlet</servlet-name>
+  <servlet-class>com.google.code.kaptcha.servlet.KaptchaServlet</servlet-class>
+</servlet>
+<servlet-mapping>
+  <servlet-name>KaptchaServlet</servlet-name>
+  <url-pattern>/kaptcha.jpg</url-pattern>
+</servlet-mapping>
+----
+
+TIP: 该jar包不支持@WebServlet注解，可以自己创建一个类继承该jar包中的KaptchaServlet类，内容为空即可
+
+.在服务器获取谷歌生成的验证码和客户端发送过来的验证码比较使用
+----
+@Override
+protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+// 获取 Session 中的验证码
+    String token = (String) req.getSession().getAttribute(KAPTCHA_SESSION_KEY);
+// 删除 Session 中的验证码
+    req.getSession().removeAttribute(KAPTCHA_SESSION_KEY);
+    String code = req.getParameter("code");
+// 获取用户名
+    String username = req.getParameter("username");
+    if (token != null && token.equalsIgnoreCase(code)) {
+        System.out.println("保存到数据库：" + username);
+        resp.sendRedirect(req.getContextPath() + "/ok.jsp");
+    } else {
+        System.out.println("请不要重复提交表单");
+    }
+}
+----
+
+.为验证码图片绑定点击事件，点击时刷新验证码
+[,javascript]
+----
+// 给验证码的图片，绑定单击事件
+$("#code_img").click(function () {
+  // 在事件响应的 function 函数中有一个 this 对象。这个 this 对象，是当前正在响应事件的dom对象// src 属性表示验证码 img 标签的 图片路径。它可读，可写
+  // alert(this.src);
+  this.src = "${basePath}kaptcha.jpg?d=" + new Date();<1>
+});
+----
+<1> 注意此处添加 new Date() ，原因是IE和FireFox浏览器因为单击事件的请求若每次都相同，会直接返回缓存中数据，无法刷新验证码
+
+=== 购物车模块
+==== 使用技术
+市面上购物车的实现技术版本有：
+
+- Session版本（把购物车信息保存到Session域中）
+- 数据库版本（把购物车信息，保存到数据库）
+- redis+数据库+Cookie（使用Cookie+Redis缓存，和数据库）
+
+==== 功能
+加入购物车、删除商品项、清空购物车、修改指定商品的数量
+
+- 修改数量：若修改数量与原值不等：
+* 鼠标离开输入框时弹窗提示用户是否修改：
+* 确认：修改
+* 取消：恢复原值
+
+==== 小点
+重定向时可以使用 `request.getHeader("Referer")` 获取请求头的url的参数，直接重定向到原地址
+----
+response.sendRedirect(request.getHeader("Referer"));
+----
+
+JavaScript 中，`this.defaultValue`是获取默认值，默认值是在页面加载时设置的输入元素的初始值。
+
+== 订单模块
+=== 订单模块分析
+==== 模型
+- 订单
+* orderId: 订单号(唯一)
+* createTime: 下单时间
+* price: 金额
+* status: 订单状态(0: 未发货, 1: 已发货 2: 已签收)
+* userId: 用户编号
+- 订单项
+* id: 主键编号
+* name: 商品名称
+* count: 数量
+* price: 单价
+* totalPrice 总价
+* orderId 订单号
+
+==== 生成订单
+===== OrderServlet程序
+createOrder
+
+- 获得购物车对象cart和用户id
+- if(id == null){重定向到登录页}
+- else{
+* 调用业务层createOrder(Cart cart, Integer userId)方法; 
+* 保存订单号到session域
+* 重定向到订单生成页
+}
+
+===== OrderService业务
+createOrder(Cart cart, Integer userId)
+
+===== OrderDAO
+saveOrder(Order order)
+
+===== OrderItemDAO
+saveOrderItem(OrderItem)
+
+==== 查看我的订单
+- 查询订单创建时间时，Java和MySQL的日期转换有问题，使用Date类，无法获取时间。导入 `import java.sql.Timestamp;` 改为Timestamp类即可。
+- dao层的sql是查询语句时一定要用和JavaBean属性一样的别名！
+
+== 第八阶段
+=== 使用 Filter 过滤器拦截管理员相关页面
+*需要拦截 `/pages/manager/` 下的所有页面以及 `/manager/` 下的 `BookServlet` 程序*
+----
+@WebFilter(filterName = "ManagerFilter", urlPatterns = {"/pages/manager/*", "/manager/BookServlet"})<1>
+public class ManagerFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws ServletException, IOException {
+        HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+        Object user = httpServletRequest.getSession().getAttribute("user");
+        if (user == null) {
+            request.getRequestDispatcher("/pages/user/login.jsp").forward(request, response);
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+}
+----
+<1> 用注解拦截多个页面的写法
+
+=== ThreadLocal 的使用
+==== 概述及作用
+- ThreadLocal 可以解决多线程的数据安全问题。
+- ThreadLocal 可以给当前线程关联一个数据（可以是普通变量，可以是对象，也可以是数组，集合）
+
+==== 特点
+- ThreadLocal 可以为当前线程关联一个且**只能关联一个数据**。（它可以像 Map 一样存取数据，key 为当前线程）
+- 每一个 ThreadLocal 对象，只能为当前线程关联一个数据，如果要**为当前线程关联多个数据，需要使用多个ThreadLocal 对象实例**
+- 每个 ThreadLocal 对象实例定义的时候，一般都是 static 类型
+- ThreadLocal 中保存数据，在线程销毁后。会由 JVM 虚拟自动释放
+
+==== 基础使用
+- 创建对象: `public static ThreadLocal<Object> threadLocal = new ThreadLocal<Object>();`
+- 关联数据: `threadLocal.set(i);`
+- 获取数据: `threadLocal.get();`
+
+=== 使用 Filter 和 ThreadLocal 组合管理事务
+==== 修改JDBCUtils工具类
+.JDBCUtils工具类中添加了ThreadLocal对象，具体参照代码
+[%collapsible]
+====
+----
+public class JDBCUtils {
+    private static DataSource source;
+    private static ThreadLocal<Connection> threadLocal = new ThreadLocal<>();
+
+    // 静态代码块在类加载时初始化 DataSource
+    static {
+        try {
+            // 创建一个 Properties 对象来保存配置信息
+            Properties properties = new Properties();
+            // 通过系统类加载器从类路径读取名为 "druid.properties" 的配置文件
+            InputStream is = JDBCUtils.class.getClassLoader().getResourceAsStream("jdbc.properties");
+            properties.load(is);
+            // 使用配置信息创建 DataSource
+            source = DruidDataSourceFactory.createDataSource(properties);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    // 从初始化的 DataSource 获取数据库连接
+    public static Connection getConnection() {
+        Connection connection = threadLocal.get();
+        if (connection == null) {
+            try {
+                connection = source.getConnection();//获取数据库连接
+                threadLocal.set(connection);//将connection存入threadLocal中
+                connection.setAutoCommit(false);//关闭事务的自动提交
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return connection;
+    }
+
+    // 提交事务和回收连接
+    public static void commitAndClose() {
+        Connection connection = threadLocal.get();
+        if (connection != null) {
+            try {
+                connection.commit();//提交事务
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }finally {
+                try {
+                    connection.setAutoCommit(true);//恢复事务的自动提交
+                    connection.close();//回收连接
+                    threadLocal.remove();//移除threadLocal中的connection
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    //回滚事务和回收连接
+    public static void rollbackAndClose() {
+        Connection connection = threadLocal.get();
+        if (connection != null) {
+            try {
+                connection.rollback();//回滚事务
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }finally {
+                try {
+                    connection.setAutoCommit(true);恢复事务的自动提交
+                    connection.close();回收连接
+                    threadLocal.remove();移除threadLocal中的connection
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+//    //回收连接
+//    public static void close(Connection connection) {
+//        if (connection != null) {
+//            try {
+//                connection.close();
+//            } catch (SQLException e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+//    }
+}
+----
+====
+
+==== 修改BaseDao类
+.注意catch处理一定要全都使用 `throw new RuntimeException(e)` 把错误抛出，或先打印错误，再抛出
+[%collapsible]
+====
+----
+public abstract class BaseDAO {
+    private QueryRunner queryRunner = new QueryRunner();
+
+    /**
+     * @description DDL和DML操作
+     */
+    public int update(String sql, Object...args){
+        Connection connection = JDBCUtils.getConnection();
+        try {
+            return queryRunner.update(connection, sql, args);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * @description 查询返回一条记录
+     */
+    public <T> T queryForOne(String sql, Class<T> type, Object...args){
+        Connection connection = JDBCUtils.getConnection();
+        try {
+            return queryRunner.query(connection, sql, new BeanHandler<>(type), args);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * @description 查询返回多条记录
+     */
+    public <T> List<T> queryForList(String sql, Class<T> type, Object...args){
+        Connection connection = JDBCUtils.getConnection();
+        try {
+            return queryRunner.query(connection, sql, new BeanListHandler<>(type), args);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * @description 查询返回一行一列的记录（用于一些特殊查询，如分组查询等）
+     */
+    public Object queryForValue(String sql, Object...args){
+        Connection connection = JDBCUtils.getConnection();
+        try {
+            return queryRunner.query(connection, sql, new ScalarHandler(), args);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+----
+====
+
+==== 修改BaseServlet类
+.BaseServlet类中的doGet, doPost方法也必须把错误抛出，或先打印错误，再抛出
+[%collapsible]
+====
+----
+@WebServlet(name = "BaseServlet", value = "/BaseServlet")
+public abstract class BaseServlet extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) {
+        doPost(request, response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) {
+        String action = request.getParameter("action");
+        try {
+            Method method = this.getClass().getDeclaredMethod(action, HttpServletRequest.class, HttpServletResponse.class);
+            method.invoke(this, request, response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+}
+----
+====
+
+==== 新增TransactionFilter类
+.使用过滤器来统一处理提交和回滚事务，因为过滤器间接调用了Servlet程序中的各个Service方法，而各个业务中的方法又调用了DAO层中各个类的方法
+[%collapsible]
+====
+----
+@WebFilter(filterName = "TransactionFilter", urlPatterns = "/*")
+public class TransactionFilter implements Filter {
+    public void init(FilterConfig config) throws ServletException {
+    }
+
+    public void destroy() {
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) {
+        try {
+            chain.doFilter(request, response);
+            JDBCUtils.commitAndClose();
+        } catch (Exception e) {
+            JDBCUtils.rollbackAndClose();
+            throw new RuntimeException(e);
+        }
+    }
+}
+----
+====
+
+NOTE: 注解中的 `urlPatterns` 属性要使用 `/*`
+
+=== 让Tomcat 展示友好的错误信息页面
+*注意上文中的TransactionFilter类也是必须抛出异常，这样才能被Tomcat服务器接收到*
+
+.在web.xml文件中配置错误信息
+[,xml]
+----
+<error-page>
+    <error-code>404</error-code> <!-- HTTP 404 Not Found -->
+    <location>/pages/error/404.jsp</location> <!-- 错误页面的相对路径 -->
+</error-page>
+
+<error-page>
+    <error-code>500</error-code> <!-- HTTP 500 Internal Server Error -->
+    <location>/pages/error/500.jsp</location> <!-- 错误页面的相对路径 -->
+</error-page>
+----
+
+.404错误页面示例
+[%collapsible]
+====
+[,jsp]
+----
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - 页面未找到</title>
+    <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+    <%--静态包含 css、jquery、base 标签--%>
+    <%@include file="/pages/common/head.jsp" %>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>404 - 页面未找到</h1>
+    <p>很抱歉，您所查找的页面不存在。</p>
+    <a href="index.jsp">返回首页</a>
+</body>
+</html>
+----
+====
+
+.500错误页面示例
+[%collapsible]
+====
+[,jsp]
+----
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 - 服务器内部错误</title>
+    <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+    <%--静态包含 css、jquery、base 标签--%>
+    <%@include file="/pages/common/head.jsp" %>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>500 - 服务器内部错误</h1>
+    <p>抱歉，服务器在处理请求时发生了错误。请稍后再试。</p>
+    <a href="index.jsp">返回首页</a>
+</body>
+</html>
+----
+====
+
+== 第九阶段 使用AJAX
+=== 使用 AJAX 验证用户名是否可用
+.删除regist方法中关于验证用户名可用的代码，新增方法existsUsername:
+----
+public void existsUsername(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String username = request.getParameter("username");
+    String msg = null;
+    if(userService.existsUsername(username)){
+        msg = "用户名已存在!";
+    }else {
+        msg = "用户名可用!";
+    }
+    Gson gson = new Gson();
+    String json = gson.toJson(msg);
+    response.getWriter().write(json);
+}
+----
+.注册页面新增绑定失去焦点事件：
+[,javascript]
+----
+$("#username").blur(function (){
+    var username = $(this).val();
+    $.getJSON(
+        "${pageScope.basePath}UserServlet",
+        "action=existsUsername&username=" + username,
+        function (data){
+            $errorMsg.html(data)
+        }
+    )
+})
+----
+
+=== 使用 AJAX 修改把商品添加到购物车
+==== 基本流程注意点说明
+修改过程并不难，要注意ajax请求加入购物车后，要把最后加入购物车的图书和最新的购物车商品总数以json字符串的格式返回给页面。同时注意把最后加入购物车的图书信息存入session域，否则切换页面后数据会丢失。
+
+==== 难点：浏览器前进后退按钮失效
+===== 正常的部分
+经过以上流程，可以实现数据实时更新，切换到其他页面时点击页面中的返回按钮数据仍然存在。
+
+===== BUG & 问题
+切换后其他页面，然后通过浏览器的前进后退按钮返回到原页面时，通过ajax请求修改的数据会恢复原样，需要刷新页面才能变成ajax请求修改的页面数据。
+
+===== 解决思路(未完全解决)
+.原代码(jQuery代码)
+[,javascript]
+----
+$(function () {
+    $("button.addToCart").click(function () {
+        var bookId = $(this).attr("bookId");
+        $.getJSON(
+            "${basePath}CartServlet?",
+            "action=ajaxAddItem&id=" + bookId,
+            function (data){
+                var totalCount = data.totalCount;
+                var LRPName = data.bookName;
+                $("#totalCount").html(totalCount);
+                $("#LRPName").html("您刚刚将<span style='color: red'>" + LRPName + "</span>加入到了购物车中");
+            }
+        )
+    })
+})
+----
+
+.可以使用localStorage 该方法将数据存在本地，解决了上面提到的问题，但又产生了新问题：即使重新部署项目数据仍然存在
+[,javascript]
+----
+// 等待页面加载完毕后执行
+$(function () {
+    // 当点击具有 "addToCart" 类的按钮时执行以下函数
+    $("button.addToCart").click(function () {
+        // 获取按钮的 bookId 属性值
+        var bookId = $(this).attr("bookId");
+        
+        // 发起 AJAX 请求以获取书籍信息
+        $.getJSON(
+            "${basePath}CartServlet?",  // 服务器端处理程序的路径
+            "action=ajaxAddItem&id=" + bookId,  // 请求参数，包括动作和书籍 ID
+            function (data){  // 请求成功后执行的回调函数，传入从服务器返回的数据对象
+                // 从返回的数据中提取所需信息
+                var totalCount = data.totalCount;
+                var LRPName = data.bookName;
+                
+                // 更新页面上的购物车总数量和提示信息
+                $("#totalCount").html(totalCount);
+                $("#LRPName").html("您刚刚将<span style='color: red'>" + LRPName + "</span>加入到了购物车中");
+                
+                // 将获取的数据存储在本地，以便后续使用
+                localStorage.setItem("data", JSON.stringify(data));
+            }
+        )
+    })
+    
+    // 从本地存储中获取数据
+    var storedData = localStorage.getItem("data");
+    if (storedData) {  // 如果本地存储中有数据
+        data = JSON.parse(storedData);  // 将 JSON 字符串解析为 JavaScript 对象
+        
+        // 在页面上更新购物车总数量和提示信息
+        $("#totalCount").html(data.totalCount);
+        $("#LRPName").html("您刚刚将<span style='color: red'>" + data.bookName + "</span>加入到了购物车中");
+    }
+})
+----
+
+== i18n国际化
+对登录页面进行了国际化配置
+
+若全页面配置，需要将locale信息保存在session域中，这样在页面跳转时可以自动按照之前的语言选项显示页面。

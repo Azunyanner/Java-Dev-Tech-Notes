@@ -1,0 +1,191 @@
+= HTML&CSS&JS
+前端部分详情参考转载笔记，此处暂记载重点部分。
+:source-highlighter: highlight.js
+:source-language: html
+:toc: left
+:toc-title: HTML&CSS&JS
+:toclevels: 3
+:sectnums:
+
+== html
+详情见 `html+css` 文件夹。
+
+=== 表单提交的时候，数据没有发送给服务器的三种情况
+. 表单项没有 `name` 属性值
+. 单选、复选（下拉列表中的 option 标签）都需要添加 `value` 属性，以便发送给服务器
+. 表单项不在提交的 form 标签中
+
+=== GET 请求的特点
+. 浏览器地址栏中的地址是：action 属性[+?+请求参数]
+请求参数的格式是：name=value&name=value
+. 不安全
+. 它有**数据长度的限制**
+
+=== POST 请求的特点
+. 浏览器地址栏中只有 action 属性值
+. 相对于 GET 请求要安全
+. 理论上**没有数据长度的限制**
+
+== css
+详情见 `html+css` 文件夹。
+
+== JavaScript
+详情见 `JavaScript` 文件夹。
+
+=== 逻辑运算
+- 且运算： &&
+* 第一种：当表达式全为真的时候。返回最后一个表达式的值。
+* 第二种：当表达式中，有一个为假的时候。返回第一个为假的表达式的值
+- 或运算： ||
+* 第一种情况：当表达式全为假时，返回最后一个表达式的值
+* 第二种情况：只要有一个表达式为真。就会返回第一个为真的表达式的值
+- 取反运算： !
+
+.注意点
+- 在 JavaScript 语言中，所有的变量，都可以做为一个 boolean 类型的变量去使用。
++
+NOTE: 0 、null、undefined、""(空串) 都认为是 false
+
+- && 与运算 和 ||或运算 有短路。当&&或||运算有结果了之后，后面的表达式不再执行。
+
+=== 函数的 arguments 隐形参数（只在 function 函数内）
+- arguments隐形参数就是在 function 函数中不需要定义，但却可以直接用来获取所有参数的变量。
+- 那么 js 中的隐形参数跟 java 的可变长参数一样。操作类似数组。
+
+=== 自定义对象
+.方式一
+[,javascript]
+----
+var 变量名 = new Object(); // 对象实例（空对象）
+变量名.属性名 = 值; // 定义一个属性
+变量名.函数名 = function(){} // 定义一个函数
+----
+.方式二
+[,javascript]
+----
+var 变量名 = { // 空对象
+属性名：值, // 定义一个属性
+属性名：值, // 定义一个属性
+函数名：function(){} // 定义一个函数
+};
+----
+
+=== 事件和DOM对象
+==== 常用事件
+- onload 加载完成事件
+- onclick 单击事件
+- onblur 失去焦点事件
+- onchange 内容发生改变事件
+- onsubmit 表单提交事件
+
+==== 常用节点分为四类
+- 文档节点：整个HTML文档
+- 元素节点：HTML文档中的HTML标签
+- 属性节点：元素的属性
+- 文本节点：HTML标签中的文本内容
+
+==== 绑定事件时获取元素的方法
+- *获取元素节点(通过document对象调用)*
+* getElementById() 通过id属性获取一个元素节点对象
+* getElementsByTagName() 通过标签名获取一组元素节点对象
+* getElementsByName() 通过name属性获取一组元素节点对象
+
+- *获取属性节点(通过元素节点调用)*
+* getAttributeNode()
+
+- *获取元素节点的子节点(即文本节点，通过具体的元素节点调用)*
+* getElementsByTagName() 方法，返回当前节点的指定标签名后代节点
+* childNodes 属性，表示当前节点的所有子节点
+* firstChild 属性，表示当前节点的第一个子节点
+* lastChild 属性，表示当前节点的最后一个子节点
+
+- *获取父节点和兄弟节点(通过具体的节点调用)*
+* parentNode 属性，表示当前节点的父节点
+* previousSibling 属性，表示当前节点的前一个兄弟节点
+* nextSibling 属性，表示当前节点的后一个兄弟节点
+
+- *使用CSS选择器进行查询*
+* querySelector() 只会返回找到的第一个元素
+* querySelectorAll() 会返回所有符合条件的元素
+
+这两个方法都是用document对象来调用，两个方法使用相同，都是传递一个选择器字符串作为参数，方法会自动根据选择器字符串去网页中查找元素。
+
+==== 事件处理中的this
+- 在事件处理程序内的 this 所引用的对象即是设定了该事件处理程序的元素。
+- 也就是事件是给那个对象绑定的this就是哪个对象。
+
+==== 事件对象Event
+在DOM对象上的某个事件被触发时，会产生一个事件对象Event，这个对象中包含着所有事件有关的信息。包括导致事件的元素、事件的类型以及其他与特定事件相关的信息。
+
+==== 元素节点的属性
+均可获取或重新赋值
+
+- element.value
+- element.id
+- element.className
+- nodeValue 文本节点可以通过nodeValue属性获取和设置文本节点的内容
+- innerHTML 元素节点通过该属性获取和设置标签内部的html代码
+- innerText 元素节点通过该属性**仅**能获取标签内部的文本内容；设置该属性时会覆盖内部所有标签、文本和子节点。
++
+NOTE: 如果某个元素或其祖先元素设置了CSS样式使其不可见（例如display: none），那么innerText不会返回这部分文本内容。
+- textContent 元素节点通过该属性**仅**能获取标签内部的文本内容；设置该属性时会覆盖内部所有标签、文本和子节点。
++
+NOTE: textContent不受CSS样式可见性的影响。
+
+==== 节点的修改
+这里的修改主要指对元素节点的操作
+
+- 创建节点
+* document.createElement(标签名)
+- 删除节点
+* 父节点.removeChild(子节点)
+- 替换节点
+* 父节点.replaceChild(新节点 , 旧节点)
+- 插入节点
+* 父节点.appendChild(子节点)
+* 父节点.insertBefore(新节点 , 旧节点)
+
+.创建div节点添加到body中示例
+[,javascript]
+----
+var obj = document.createElement(div);
+obj.innerHTML = "添加文本";
+document.body.appendChild(obj);
+//方法二：
+//var obj2 = document.createTextNode("添加文本");
+//obj.appendChild(obj2);
+----
+
+==== 利用类似数组的方法查找和设置DOM对象
+[,javascript]
+----
+<ul id="myList">
+  <li>Item 1</li>
+  <li>Item 2</li>
+  <li>Item 3</li>
+</ul>
+
+<script>
+const listItems = document.getElementById("myList").getElementsByTagName("li");
+
+// 访问第二个<li>元素（索引为1）
+console.log(listItems[1].textContent); // 输出 "Item 2"
+</script>
+----
+
+=== 通过DOM对象修改CSS属性
+==== 读取和设置内联样式
+语法：`元素.sty1e.样式名`; `元素.sty1e.样式名=样式值`
+
+NOTE: 样式名有横杠时转为大写字母(小驼峰式)，样式值要加引号
+
+==== 读取当前正在显示的样式
+以下属性/方法都是只读的，不能修改。
+
+===== 仅IE8浏览器支持
+`元素.currentStyle.样式名`
+
+IMPORTANT: 注意是当前显示的样式，可能是内联样式也可能是样式表中样式
+
+===== 其他版本及浏览器都支持
+语法：`getComputedstyle([元素],[伪元素或null]).样式名`

@@ -1,0 +1,130 @@
+= XML
+该文档为学习中记录的主要内容。具体功能需查阅文件夹中的官方API文档。
+:source-highlighter: highlight.js
+:source-language: xml
+:toc: left
+:toc-title: XML
+:toclevels: 3
+:sectnums:
+
+== 什么是xml?
+xml 是可扩展的标记性语言
+
+== xml 的作用
+xml 的主要作用有：
+
+- 用来保存数据，而且这些数据具有自我描述性
+- 作为项目或者模块的配置文件
+- 作为网络传输数据的格式（现在 JSON 为主）
+
+== xml 语法
+=== 文档声明
+----
+<?xml version="1.0" encoding="UTF-8"?>
+----
+
+.属性
+- version 版本号
+- encoding xml 的文件编码
+- standalone="yes/no" 表示这个xml文件是否是独立的xml文件
+
+=== xml 注释
+.和html一样
+----
+<!-- html 注释 -->
+----
+
+=== 元素（标签）
+==== 概念
+XML元素指的是从（且包括）开始标签直到（且包括）结束标签的部分。元素可包含其他元素、文本或者两者的混合物。元素也可以拥有属性。
+
+==== 命名规则
+- 可以含字母、数字以及其他的字符
+- 不能以数字或者标点符号开始
+- 不能以字符 “xml”（或者 XML、Xml）开始
++
+NOTE: 实测可以，可能只是规范而不是规定
+- 不能包含空格
+
+==== 分类
+xml 中的元素（标签）也分成单标签和双标签
+
+=== xml 属性
+一个标签上可以书写多个属性。每个属性的值必须使用引号引起来。
+
+=== 文本区域（CDATA区）
+.特殊字符较多时整体写入CDATA区
+----
+<![CDATA[ 这里可以把你输入的字符原样显示，不会解析 xml ]]>
+----
+
+=== 语法规则汇总
+所有 XML 元素都须有关闭标签（也就是闭合）
+XML 标签对大小写敏感
+XML 必须正确地嵌套
+XML 文档必须有根元素
+XML 的属性值须加引号
+XML 中的特殊字符要使用实体或文本区域（CDATA区）
+
+== xml 解析技术
+=== 说明
+xml 可扩展的标记语言。不管是 html 文件还是 xml 文件它们都是标记型文档，都可以使用 w3c 组织制定的dom技术来解析。
+
+=== 解析技术
+早期 JDK 为我们提供了两种 xml 解析技术 DOM 和 Sax
+
+==== DOM
+dom 解析技术是 W3C 组织制定的，而所有的编程语言都对这个解析技术使用了自己语言的特点进行实现。Java 对 dom 技术解析标记也做了实现。
+
+==== Sax
+sun 公司在 JDK5 版本对 dom 解析技术进行升级：SAX（ Simple API for XML ）SAX 解析，它跟 W3C 制定的解析不太一样。它是以类似事件机制通过回调告诉用户当前正在解析的内容。它是一行一行的读取 xml 文件进行解析的。不会创建大量的 dom 对象。
+
+所以它在解析 xml 的时候，在内存的使用上和性能上都优于 Dom 解析。
+
+==== 第三方的解析
+jdom 在 dom 基础上进行了封装
+dom4j 又对 jdom 进行了封装
+pull 主要用在 Android 手机开发，是在跟 sax 非常类似都是事件机制解析 xml 文件
+
+=== dom4j 解析技术的使用
+*使用dom4j需要导入dom4j的jar包*
+
+.示例
+[,java]
+----
+@Test
+public void readXML() throws DocumentException {
+    // 需要分四步操作:
+    // 第一步，通过创建 SAXReader 对象。来读取 xml 文件，获取 Document 对象
+    // 第二步，通过 Document 对象。拿到 XML 的根元素对象
+    // 第三步，通过根元素对象。获取所有的 book 标签对象
+    // 第四步，遍历每个 book 标签对象。然后获取到 book 标签对象内的每一个元素，再通过getText()方法拿到起始标签和结束标签之间的文本内容
+
+    
+    // 第一步，通过创建 SAXReader 对象。来读取 xml 文件，获取 Document 对象SAXReader reader = new SAXReader();
+    SAXReader reader = new SAXReader();
+    Document document = reader.read("src/books.xml");
+    // 第二步，通过 Document 对象。拿到 XML 的根元素对象
+    Element root = document.getRootElement();
+    // 打印测试
+    // Element.asXML() 它将当前元素转换成为 String 对象
+    // System.out.println( root.asXML() );
+    // 第三步，通过根元素对象。获取所有的 book 标签对象
+    // Element.elements(标签名)它可以拿到当前元素下的指定的子元素的集合
+    List<Element> books = root.elements("book");
+    // 第四小，遍历每个 book 标签对象。然后获取到 book 标签对象内的每一个元素，
+    for (Element book : books) {
+        // 测试
+        // System.out.println(book.asXML());
+        // 拿到 book 下面的 name 元素对象
+        Element nameElement = book.element("name");
+        // 拿到 book 下面的 price 元素对象
+        Element priceElement = book.element("price");
+        // 拿到 book 下面的 author 元素对象
+        Element authorElement = book.element("author");
+        // 再通过 getText() 方法拿到起始标签和结束标签之间的文本内容
+        System.out.println("书名" + nameElement.getText() + " , 价格:"
+                + priceElement.getText() + ", 作者：" + authorElement.getText());
+    }
+}
+----

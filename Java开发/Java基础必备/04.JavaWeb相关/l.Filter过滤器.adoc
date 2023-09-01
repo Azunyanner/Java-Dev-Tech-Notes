@@ -1,0 +1,163 @@
+= Filter过滤器
+:source-highlighter: highlight.js
+:source-language: java
+:toc: left
+:toc-title: Filter过滤器
+:toclevels: 3
+:sectnums:
+
+== 什么是过滤器？
+=== 是什么？
+- Filter 过滤器是 JavaWeb 的三大组件之一。三大组件分别是：Servlet 程序、Listener 监听器、Filter 过滤器
+- Filter 过滤器是 JavaEE 的规范，也就是接口
+
+=== 作用和应用场景
+拦截请求；过滤响应
+
+拦截请求常见的应用场景有：
+
+- 权限检查
+- 日记操作
+- 事务管理
+- ……等等
+
+== Filter工作流程
+. 客户端请求资源
+. 服务器端的Filter过滤器检查用户是否登录，即检查权限：
+.. 有权限：访问目标资源
++
+NOTE: 目标资源包括：html页面, jsp页面, Servlet程序, txt文本, jpg图片等
+.. 无权限：跳转到登录页面或禁止访问
+
+== 代码实现
+.登录页面
+[,jsp]
+----
+<form action="http://localhost:8080/rear_end/LoginServlet" method="get">
+    <span>用户名</span><input type="text" name="username">
+    <span>密码</span><input type="password" name="password">
+    <input type="submit" value="登录">
+</form>
+----
+.登录成功页面
+[,jsp]
+----
+<body>
+    登录成功！
+</body>
+----
+.LoginServlet程序
+----
+//获得参数用户名和密码
+String username = request.getParameter("username");
+String password = request.getParameter("password");
+//密码正确，将用户信息保存到session域，请求转发到登录成功页面
+if ("monster".equals(username) && "mon123".equals(password)) {
+    request.getSession().setAttribute("user", username);
+    request.getRequestDispatcher("/user/login_success.jsp").forward(request, response);
+}else {
+    //密码错误，重定向到登录页面
+    response.sendRedirect(request.getContextPath() + "/user/login.jsp");
+}
+----
+.LoginFilter过滤器
+----
+@WebFilter(filterName = "LoginFilter" ,urlPatterns = "/user/login_success.jsp")
+public class LoginFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws ServletException, IOException {
+        //将request强转为HttpServletRequest类型
+        HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+        //获得session域中的user参数
+        Object user = httpServletRequest.getSession().getAttribute("user");
+        //未登录直接访问登录成功页面时，user为空，会重定向到登录页面
+        if (user == null) {
+            request.getRequestDispatcher("/user/login.jsp").forward(request, response);
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+}
+----
+
+== Filter 的生命周期
+. 构造器方法
+. init 初始化方法
++
+NOTE: 第 1，2 步，在 web 工程启动的时候执行（Filter 已经创建）
+. doFilter 过滤方法
++
+NOTE: 第 3 步，每次拦截到请求，就会执行
+. destroy 销毁
++
+NOTE: 第 4 步，停止 web 工程的时候，就会执行（停止 web 工程，也会销毁Filter 过滤器）
+
+== FilterConfig 类
+=== 概述
+- FilterConfig 是 Filter 过滤器的配置文件类。
+- Tomcat 每次创建 Filter 的时候，也会同时创建一个 FilterConfig 类，这里包含了 Filter 配置文件的配置信息。
+
+=== 作用
+FilterConfig 类的作用是获取 filter 过滤器的配置内容
+
+- `filterConfig.getFilterName()` 获取 Filter 的名称 filter-name(别名) 的内容
+- `filterConfig.getInitParameter("username")` 获取在 Filter 中配置的 init-param 初始化参数
+- `filterConfig.getServletContext()` 获取 ServletContext 对象
+
+
+.xml文件的初始化参数配置
+----
+<filter>
+    <!--给 filter 起一个别名-->
+    <filter-name>AdminFilter</filter-name>
+    <!--配置 filter 的全类名-->
+    <filter-class>com.atguigu.filter.AdminFilter</filter-class>
+    <init-param>
+        <param-name>username</param-name>
+        <param-value>root</param-value>
+    </init-param>
+    <init-param>
+        <param-name>url</param-name>
+        <param-value>jdbc:mysql://localhost3306/test</param-value>
+    </init-param>
+</filter>
+----
+
+== FilterChain 过滤器链
+=== 多个过滤器的执行流程
+image::images\\_l.FilterChain过滤器链.png[align="center"]
+
+- **doFilte方法的作用：**如果有多个过滤器，会执行下一个过滤器，否则执行目标资源。
+
+=== 执行顺序
+- 注解配置：按照类名的字符串比较规则比较，值小的先执行
+* 如： AFilter 和 BFilter，AFilter先执行。
+- web.xml配置：谁定义在前谁先执行
+
+=== 多个过滤器执行的特点
+- 所有Filter和目标资源默认都执行在同一个线程中
+- 多个Filter共同执行时，它们都使用同一个Request对象
+
+== Filter 的拦截路径
+=== 精确匹配
+`<url-pattern>/target.jsp</url-pattern>`
+
+以上配置的路径，表示请求地址必须为：`http://ip:port/工程路径/target.jsp`
+
+=== 目录匹配
+`<url-pattern>/admin/*</url-pattern>`
+
+以上配置的路径，表示请求地址必须为：`http://ip:port/工程路径/admin/*`
+
+=== 后缀名匹配
+- `<url-pattern>*.html</url-pattern>`
++
+以上配置的路径，表示请求地址必须以 `.html` 结尾才会拦截到
+- `<url-pattern>*.action</url-pattern>`
++
+以上配置的路径，表示请求地址必须以 `.action` 结尾才会拦截到
+
+NOTE: Filter 过滤器只关心请求的地址是否匹配，不关心请求的资源是否存在
+
+== 应用实例
+书城项目第八阶段使用 Filter 和 ThreadLocal 组合管理事务。

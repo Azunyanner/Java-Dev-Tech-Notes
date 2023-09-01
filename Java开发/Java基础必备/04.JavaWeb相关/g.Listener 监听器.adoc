@@ -1,0 +1,178 @@
+= Listener 监听器
+:source-highlighter: highlight.js
+:source-language: jsp
+:toc: left
+:toc-title: Listener 监听器
+:toclevels: 3
+:sectnums:
+
+== 概述
+- Listener 监听器它是 JavaWeb 的三大组件之一。JavaWeb 的三大组件分别是：Servlet 程序、Filter 过滤器、Listener监听器。
+- Listener 它是 JavaEE 的规范，就是接口
+
+== 作用
+监听某种事物的变化。然后通过回调函数，反馈给客户（程序）去做一些相应的处理。
+
+== ServletContextListener 监听器
+大多监听器已不常用，这里以目前还比较有用的ServletContextListener为例进行说明。
+
+=== 概述
+- ServletContextListener 它可以监听 ServletContext 对象的创建和销毁。
+- ServletContext 对象在 web 工程启动的时候创建，在 web 工程停止的时候销毁。
+- 监听到创建和销毁之后都会分别调用 ServletContextListener 监听器的方法反馈。
+
+=== 示例
+----
+public class MyServletContextListenerImpl implements ServletContextListener {
+    @Override
+    public void contextInitialized(ServletContextEvent sce) {
+        System.out.println("ServletContext 对象被创建了");
+    }
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+        System.out.println("ServletContext 对象被销毁了");
+    }
+}
+----
+
+.web.xml 中的配置
+----
+<!--配置监听器-->
+<listener>
+<listener-class>com.atguigu.listener.MyServletContextListenerImpl</listener-class></listener>
+----
+
+*或使用注解 `@WebListener`*
+
+== 监听器列表
+=== ServletContextListener
+作用：监听ServletContext对象的创建与销毁
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|contextInitialized(ServletContextEvent sce)|ServletContext创建时调用
+|contextDestroyed(ServletContextEvent sce)|ServletContext销毁时调用
+|===
+
+ServletContextEvent对象代表从ServletContext对象身上捕获到的事件，通过这个事件对象我们可以获取到ServletContext对象。
+
+
+=== HttpSessionListener
+作用：监听HttpSession对象的创建与销毁
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|sessionCreated(HttpSessionEvent hse)|HttpSession对象创建时调用
+|sessionDestroyed(HttpSessionEvent hse)|HttpSession对象销毁时调用
+|===
+
+HttpSessionEvent对象代表从HttpSession对象身上捕获到的事件，通过这个事件对象我们可以获取到触发事件的HttpSession对象。
+
+=== ServletRequestListener
+作用：监听ServletRequest对象的创建与销毁
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|requestInitialized(ServletRequestEvent sre)|ServletRequest对象创建时调用
+|requestDestroyed(ServletRequestEvent sre)|ServletRequest对象销毁时调用
+|===
+
+ServletRequestEvent对象代表从HttpServletRequest对象身上捕获到的事件，通过这个事件对象我们可以获取到触发事件的HttpServletRequest对象。另外还有一个方法可以获取到当前Web应用的ServletContext对象。
+
+=== ServletContextAttributeListener
+作用：监听ServletContext中属性的创建、修改和销毁
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|attributeAdded(ServletContextAttributeEvent scab)|向ServletContext中添加属性时调用
+|attributeRemoved(ServletContextAttributeEvent scab)|从ServletContext中移除属性时调用
+|attributeReplaced(ServletContextAttributeEvent scab)|当ServletContext中的属性被修改时调用
+|===
+
+ServletContextAttributeEvent对象代表属性变化事件，它包含的方法如下：
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|getName()|获取修改或添加的属性名
+|getValue()|获取被修改或添加的属性值
+|getServletContext()|获取ServletContext对象
+|===
+
+=== HttpSessionAttributeListener
+作用：监听HttpSession中属性的创建、修改和销毁
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|attributeAdded(HttpSessionBindingEvent se)|向HttpSession中添加属性时调用
+|attributeRemoved(HttpSessionBindingEvent se)|从HttpSession中移除属性时调用
+|attributeReplaced(HttpSessionBindingEvent se)|当HttpSession中的属性被修改时调用
+|===
+
+HttpSessionBindingEvent对象代表属性变化事件，它包含的方法如下：
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|getName()|获取修改或添加的属性名
+|getValue()|获取被修改或添加的属性值
+|getSession()|获取触发事件的HttpSession对象
+|===
+
+=== ServletRequestAttributeListener
+作用：监听ServletRequest中属性的创建、修改和销毁
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|attributeAdded(ServletRequestAttributeEvent srae)|向ServletRequest中添加属性时调用
+|attributeRemoved(ServletRequestAttributeEvent srae)|从ServletRequest中移除属性时调用
+|attributeReplaced(ServletRequestAttributeEvent srae)|当ServletRequest中的属性被修改时调用
+|===
+
+ServletRequestAttributeEvent对象代表属性变化事件，它包含的方法如下：
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|getName()|获取修改或添加的属性名
+|getValue()|获取被修改或添加的属性值
+|getServletRequest ()|获取触发事件的ServletRequest对象
+|===
+
+=== HttpSessionBindingListener
+作用：监听某个对象在Session域中的创建与移除
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|valueBound(HttpSessionBindingEvent event)|该类的实例被放到Session域中时调用
+|valueUnbound(HttpSessionBindingEvent event)|该类的实例从Session中移除时调用
+|===
+
+HttpSessionBindingEvent对象代表属性变化事件，它包含的方法如下：
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|getName()|获取当前事件涉及的属性名
+|getValue()|获取当前事件涉及的属性值
+|getSession()|获取触发事件的HttpSession对象
+|===
+
+=== HttpSessionActivationListener
+作用：监听某个对象在Session中的序列化与反序列化。
+
+[%header, cols="2*^.^"]
+|===
+|方法名|作用
+|sessionWillPassivate(HttpSessionEvent se)|该类实例和Session一起钝化到硬盘时调用
+|sessionDidActivate(HttpSessionEvent se)|该类实例和Session一起活化到内存时调用
+|===
+
+HttpSessionEvent对象代表事件对象，通过getSession()方法获取事件涉及的HttpSession对象。

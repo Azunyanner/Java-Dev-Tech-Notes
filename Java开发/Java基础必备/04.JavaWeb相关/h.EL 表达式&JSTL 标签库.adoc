@@ -1,0 +1,442 @@
+= EL表达式&JSTL标签库
+:source-highlighter: highlight.js
+:source-language: jsp
+:toc: left
+:toc-title: EL表达式&JSTL标签库
+:toclevels: 3
+:sectnums:
+
+== EL表达式
+=== 概述
+EL 表达式的全称是：Expression Language。是表达式语言。
+
+=== 作用
+EL 表达式主要是代替 jsp 页面中的表达式脚本在 jsp 页面中进行数据的输出。因为 EL 表达式在输出数据的时候，要比 jsp 的表达式脚本要简洁很多。
+
+.示例对比
+----
+<%request.setAttribute("key","key的值");%>
+表达式脚本输出 key 的值：
+<%=request.getAttribute("key")%><br>
+el表达式输出 key 的值：
+${key}
+----
+
+=== 使用
+==== null值输出是空串
+EL 表达式在输出 null 值的时候，输出的是空串。jsp 表达式脚本输出 null 值的时候，输出的是null 字符串。
+
+==== 输出搜索域数据的顺序
+EL 表达式主要是在 jsp 页面中输出数据。主要是输出域对象中的数据。当四个域中都有相同的 key 的数据的时候，EL 表达式会按照四个域的从小到大的顺序去进行搜索，找到就输出。
+
+.示例
+----
+<%
+pageContext.setAttribute("key1", "pageContext");
+request.setAttribute("key1", "request");
+session.setAttribute("key1", "session");
+application.setAttribute("key1", "application");
+
+%><br>
+${ key1 }
+----
+
+==== 输出对象的普通、数组、List集合、map 集合的属性
+IMPORTANT: 属性是通过JavaBean中属性的**getXxx/isXxx方法**获取到的，直接给属性赋值是无法获取的！
+----
+<%
+    Person person = new Person();
+    person.setName("张三");
+    person.setPhones(new String[]{"18610541354", "18688886666", "18699998888"});
+    List<String> cities = new ArrayList<String>();
+    cities.add("北京");
+    cities.add("上海");
+    cities.add("深圳");
+    person.setCities(cities);
+    Map<String, Object> map = new HashMap<>();
+    map.put("key1", "value1");
+    map.put("key2", "value2");
+    map.put("key3", "value3");
+    person.setMap(map);
+    pageContext.setAttribute("p", person);
+%>
+<br>
+输出 Person：${p}<br/>
+输出 Person 的 name 属性：${p.name} <br>
+输出 Person 的 pnones 数组属性值：${p.phones[2]} <br>
+输出 Person 的 cities 集合中的元素值：${p.cities} <br>
+输出 Person 的 List 集合中个别元素值：${p.cities[2]} <br>
+输出 Person 的 Map 集合: ${p.map} <br>
+输出 Person 的 Map 集合中某个 key 的值: ${p.map.key3} <br>
+----
+
+==== 运算
+===== 关系运算
+[%header, cols="^.^1,^.^1,^.^2,^.^1"]
+|===
+|关系运算符|说明|范例|结果
+|== 或 eq| 等于| ${ 5 == 5 } 或 ${ 5 eq 5 }| true
+|!= 或 ne| 不等于| ${ 5 !=5 } 或 ${ 5 ne 5 }| false
+|< 或 lt| 小于| ${ 3 < 5 } 或 ${ 3 lt 5 }| true
+|> 或 gt| 大于| ${ 2 > 10 } 或 ${ 2 gt 10 }| false
+|<= 或 le| 小于等于| ${ 5 <= 12 } 或 ${ 5 le 12 }| true
+|>= 或 ge| 大于等于| ${ 3 >= 5 } 或 ${ 3 ge 5 }| false
+|===
+
+===== 逻辑运算
+[%header, cols="^.^1,^.^1,^.^2,^.^1"]
+|===
+|逻辑运算符|说明|范例|结果
+|&& 或 and| 与运算| ${ 12 == 12 && 12 < 11 } 或 ${ 12 == 12 and 12 < 11 }| false
+|\|\| 或 or| 或运算| ${ 12 == 12 \|\| 12 < 11 } 或 ${ 12 == 12 or 12 < 11 }| true
+|! 或 not| 取反运算| ${ !true } 或 ${not true }| false
+|===
+
+===== 算数运算
+[%header, cols="^.^1,^.^1,^.^2,^.^1"]
+|===
+|算数运算符|说明|范例|结果
+|+| 加法| ${ 12 + 18 }| 30
+|-| 减法| ${ 18 - 8 } |10
+|*| 乘法| ${ 12 * 12 }| 144
+|/ 或 div| 除法| ${ 144 / 12 }或${ 144 div 12}|12
+|% 或 mod| 取模| ${ 144 % 10 }或${ 144 mod 10}|4
+|===
+
+===== empty 运算
+判断数据是否为空，为空输出true,不为空输出false
+
+.以下几种情况为空：
+- 值为 null 值
+- 值为空串
+- 值是 Object 类型数组，长度为零
+- list 集合，元素个数为零
+- map 集合，元素个数为零
+
+===== 三元运算
+`${表达式1 ? 表达式2 : 表达式3}`
+
+===== `.` 运算和 `[]` 运算符
+- `.`点运算，可以输出 Bean 对象中某个属性的值。
+- `[]`中括号运算，可以输出有序集合中某个元素的值。
+- `[]`中括号运算，还可以输出 map 集合中 key 里含有特殊字符的 key 的值。
++
+.示例：当key中含有会被误认为是运算符的字符时，可以将其用引号(单双引号都可)包裹再套一层中括号
+----
+${ map['a.a.a'] } <br>
+----
+
+==== 11 个隐含对象
+EL 个达式中 11 个隐含对象，是 EL 表达式中自己定义的，可以直接使用。
+
+.隐含对象列表
+[%header, cols="^.^1,^.^1,^.^1,^.^2"]
+|===
+|类别|变量| 类型| 作用
+|获取jsp内置对象
+|pageContext| PageContextImpl| 获取 jsp 中的九大内置对象
+.4+|获取特定域中的属性
+|pageScope| Map<String,Object>| 获取 pageContext 域中的数据
+|requestScope| Map<String,Object>| 获取 Request 域中的数据
+|sessionScope| Map<String,Object>| 获取 Session 域中的数据
+|applicationScope| Map<String,Object>| 获取 ServletContext 域中的数据
+.2+|获取请求参数的值
+|param| Map<String,String>| 获取请求参数的值
+|paramValues| Map<String,String[]>| 获取请求参数的值，获取多个值的时候使用
+.2+|获取请求头信息
+|header| Map<String,String>| 获取请求头的信息
+|headerValues| Map<String,String[]>| 获取请求头的信息，它可以获取多个值的情况
+|获取cookie信息
+|cookie| Map<String,Cookie>| 获取当前请求的Cookie 信息
+|获取初始化参数
+|initParam| Map<String,String>| 获取在 web.xml 中配置的<context-param>上下文参数
+|===
+
+===== pageContext 对象的使用
+pageContext 对象可以获取 jsp 中的九大内置对象,然后调用对象的属性获取信息
+
+.使用如下：
+- 协议： `${ pageContext.request.scheme }`
+- 服务器 ip：`${ pageContext.request.serverName }`
+- 服务器端口：`${ pageContext.request.serverPort }`
+- 获取工程路径：`${ pageContext.request.contextPath }`
+- 获取请求方法：`${ pageContext.request.method }`
+- 获取客户端 ip 地址：`${ pageContext.request.remoteHost }`
+- 获取会话的 id 编号：`${ pageContext.session.id }`
+
+
+.以上方法实际调用的是如下的get方法：
+- `request.getScheme()` 获取请求的协议
+- `request.getServerName()` 获取请求的服务器 ip 或域名
+- `request.getServerPort()` 获取请求的服务器端口号
+- `getContextPath()` 获取当前工程路径
+- `request.getMethod()` 获取请求的方式（GET 或 POST）
+- `request.getRemoteHost()` 获取客户端的 ip 地址
+- `session.getId()` 获取会话的唯一标识
+
+[TIP]
+====
+.将request存入域对象中：
+----
+<%
+pageContext.setAttribute("req", request);
+%>
+----
+调用更方便：`${ req.scheme }`
+====
+
+===== xxxScope 的使用
+可以获取指定域中的key值
+
+.示例
+----
+<%
+pageContext.setAttribute("key1", "pageContext1");
+pageContext.setAttribute("key2", "pageContext2");
+request.setAttribute("key2", "request");
+session.setAttribute("key2", "session");
+application.setAttribute("key2", "application");
+%>
+${ applicationScope.key2 }
+----
+
+===== param和paramValues的使用
+.请求地址：
+`http://localhost:8080/09_EL_JSTL/other_el_obj.jsp?username=wzg168&password=666666&hobby=java&hobby=cpp`
+
+.param
+- 输出请求参数 username 的值：`${ param.username }`
+- 输出请求参数 password 的值：`${ param.password }`
+
+.paramValues
+- 输出请求参数 username 的值：`${ paramValues.username[0] }`
+- 输出请求参数 hobby 的值：`${ paramValues.hobby[0] }`
+- 输出请求参数 hobby 的值：`${ paramValues.hobby[1] }`
+
+===== header和headerValues的使用
+- 输出请求头【User-Agent】的值：`${ header['User-Agent'] }`
+- 输出请求头【Connection】的值：`${ header.Connection }`
+- 输出请求头【User-Agent】的值：`${ headerValues['User-Agent'][0] }`
+
+===== cookie的使用
+- 获取 Cookie 的名称：`${ cookie.JSESSIONID.name }`
+- 获取 Cookie 的值：`${ cookie.JSESSIONID.value }`
+
+===== initParam的使用
+.web.xml 中的配置：
+----
+<context-param>
+    <param-name>username</param-name>
+    <param-value>root</param-value>
+</context-param>
+
+<context-param>
+    <param-name>url</param-name>
+    <param-value>jdbc:mysql:///test</param-value>
+</context-param>
+----
+
+- 输出&lt;Context-param&gt;username 的值：`${ initParam.username }`
+- 输出&lt;Context-param&gt;url 的值：`${ initParam.url }`
+
+== JSTL 标签库
+=== 概述
+JSTL 标签库 全称是指 JSP Standard Tag Library(JSP 标准标签库)。是一个不断完善的开放源代码的JSP标签库。
+
+EL 表达式主要是为了替换 jsp 中的表达式脚本，而标签库则是为了替换代码脚本。这样使得整个jsp页面变得更佳简洁。
+
+.JSTL 由五个不同功能的标签库组成：
+[%header, cols="^.^1,^.^2,^.^1"]
+|===
+|功能范围| URI| 前缀
+|核心标签库--重点| `http://java.sun.com/jsp/jstl/core`| c
+|格式化| `http://java.sun.com/jsp/jstl/fmt`| fmt
+|函数| `http://java.sun.com/jsp/jstl/functions`| fn
+|数据库(不使用)| `http://java.sun.com/jsp/jstl/sql`| sql
+|XML(不使用)| `http://java.sun.com/jsp/jstl/xml`| x
+|===
+
+=== 引入标签库
+- 导入 jstl 标签库的 jar 包：
+* tomcat9及以下：`taglibs-standard-impl-1.2.1.jar` ; `taglibs-standard-spec-1.2.1.jar`
+* tomcat10：`jakarta.servlet.jsp.jstl-2.0.0.jar` ; `jakarta.servlet.jsp.jstl-api-2.0.0.jar`
+- 使用 taglib 指令引入标签库：
+* CORE 标签库： +
+`<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>`
+* XML 标签库： +
+`<%@ taglib prefix="x" uri="http://java.sun.com/jsp/jstl/xml" %>`
+* FMT 标签库： +
+`<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>`
+* SQL 标签库： +
+`<%@ taglib prefix="sql" uri="http://java.sun.com/jsp/jstl/sql" %>`
+* FUNCTIONS 标签库： +
+`<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>`
+
+=== core 核心库的使用
+==== `<c:set />` 标签
+===== 语法
+`<c:set scope="session" var="abc" value="abcValue"/>`
+
+- scope 属性设置保存到哪个域
+* page 表示 PageContext 域（默认值）
+* request 表示 Request 域
+* session 表示 Session 域
+* application 表示 ServletContext 域
+- var 属性设置 key 是多少
+- value 属性设置值
+
+===== 作用
+往域中保存数据
+
+==== `<c:if />` 标签
+===== 语法
+----
+<c:if test="${ 12 == 12 }">
+    <h1>12 等于 12</h1>
+</c:if>
+<c:if test="${ 12 != 12 }">
+    <h1>12 不等于 12</h1>
+</c:if>
+----
+- test 属性表示判断的条件（使用 EL 表达式输出）
+
+===== 作用
+做 if 判断
+
+==== `<c:choose> <c:when> <c:otherwise>` 标签
+===== 语法
+----
+<%
+    request.setAttribute("height", 180);
+%>
+<c:choose>
+    <%-- 这是 html 注释 --%>
+    <c:when test="${ requestScope.height > 190 }">
+        <h2>小巨人</h2>
+    </c:when>
+    <c:when test="${ requestScope.height > 180 }">
+        <h2>很高</h2>
+    </c:when>
+    <c:when test="${ requestScope.height > 170 }">
+        <h2>还可以</h2>
+    </c:when>
+    <c:otherwise>
+        <c:choose>
+            <c:when test="${requestScope.height > 160}">
+                <h3>大于 160</h3>
+            </c:when>
+            <c:when test="${requestScope.height > 150}">
+                <h3>大于 150</h3>
+            </c:when>
+            <c:when test="${requestScope.height > 140}">
+                <h3>大于 140</h3>
+            </c:when>
+            <c:otherwise>
+                其他小于 140
+            </c:otherwise>
+        </c:choose>
+    </c:otherwise>
+</c:choose>
+----
+
+- choose 标签开始选择判断
+- when 标签表示每一种判断情况
+* test 属性表示当前这种判断情况的值
+- otherwise 标签表示剩下的情况
+
+.注意点
+- 标签里不能使用 html 注释，要使用 jsp 注释
+- when 标签的父标签一定要是 choose 标签
+
+===== 作用
+多路判断
+
+==== `<c:forEach />` 标签
+===== 语法：遍历数字
+.示例：遍历数字1-10
+----
+<table border="1">
+    <c:forEach begin="1" end="10" var="i">
+        <tr>
+            <td>第${i}行</td>
+        </tr>
+    </c:forEach>
+</table>
+----
+- begin 属性设置开始的索引
+- end 属性设置结束的索引
+- var 属性表示循环的变量(也是当前正在遍历到的数据)
+
+.示例：遍历 Object 数组
+----
+<%
+    request.setAttribute("arr", new String[]{"18610541354","18688886666","18699998888"});
+%>
+<c:forEach items="${ requestScope.arr }" var="item">
+    ${ item } <br>
+</c:forEach>
+----
+- items 表示遍历的数据源（遍历的集合）
+- var 表示当前遍历到的数据
+
+.示例：遍历 Map 集合
+----
+<%
+    Map<String,Object> map = new HashMap<String, Object>();
+    map.put("key1", "value1");
+    map.put("key2", "value2");
+    map.put("key3", "value3");
+    request.setAttribute("map", map);
+%>
+<c:forEach items="${ requestScope.map }" var="entry">
+    <h1>${entry.key} = ${entry.value}</h1>
+</c:forEach>
+----
+
+.示例：遍历 List 集合---list 中存放 Student 类
+----
+<%
+    List<Student> studentList = new ArrayList<Student>();
+    for (int i = 1; i <= 10; i++) {
+        studentList.add(new Student(i,"username"+i ,"pass"+i,18+i,"phone"+i));
+    }
+    request.setAttribute("stus", studentList);
+%>
+<table>
+    <tr>
+        <th>编号</th>
+        <th>用户名</th>
+        <th>密码</th>
+        <th>年龄</th>
+        <th>电话</th>
+        <th>操作</th>
+    </tr>
+
+    <c:forEach begin="2" end="7" step="2" varStatus="status" items="${requestScope.stus}" var="stu"><tr>
+        <td>${stu.id}</td>
+        <td>${stu.username}</td>
+        <td>${stu.password}</td>
+        <td>${stu.age}</td>
+        <td>${stu.phone}</td>
+        <td>${status.step}</td>
+    </tr>
+    </c:forEach>
+</table>
+----
+- items 表示遍历的集合
+- var 表示遍历到的数据
+- begin 表示遍历的开始索引值
+- end 表示结束的索引值
+- step 属性表示遍历的步长值
+- varStatus 属性表示当前遍历到的数据的状态，状态有如下属性可以调用获取到：
+* current 表示获驭当前遍历到的数据
+* index 表示获取遍历的索引
+* count 表示遍历的个数
+* first 表示当前遍历的数据是否是第一条
+* last 表示当前遍历的数据是否是最后一条
+* begin 获取begin属性值
+* end 获取end属性值
+* step 获取step属性值
+
+===== 作用
+遍历输出
