@@ -1,0 +1,13 @@
+= Maven文件夹内容描述
+
+== 使用方法
+`a ~ d` 为JavaWeb阶段完成后可学习内容，该阶段另有 `单一架构案例` 未转载
+
+SSM、微服务阶段完成后可学习部分未转载
+
+== 转载来源
+转载自：[尚硅谷Maven教程（maven入门+高深，全网无出其右！）](https://heavy_code_industry.gitee.io/code_heavy_industry/pro002-maven/)  
+
+转载来源：尚硅谷  
+
+转载说明：修改部分格式，保存以供备用
