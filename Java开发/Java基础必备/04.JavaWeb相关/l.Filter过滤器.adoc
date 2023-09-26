@@ -130,7 +130,7 @@ image::images\\_l.FilterChain过滤器链.png[align="center"]
 - **doFilte方法的作用：**如果有多个过滤器，会执行下一个过滤器，否则执行目标资源。
 
 === 执行顺序
-- 注解配置：按照类名的字符串比较规则比较，值小的先执行
+- 注解配置：按照**全类名**的字符串比较规则比较，值小的先执行
 * 如： AFilter 和 BFilter，AFilter先执行。
 - web.xml配置：谁定义在前谁先执行
 

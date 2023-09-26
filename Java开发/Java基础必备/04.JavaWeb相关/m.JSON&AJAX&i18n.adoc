@@ -148,6 +148,7 @@ AJAX 即 `Asynchronous Javascript And XML` (异步 JavaScript 和 XML)，是指�
 
 === 原生 AJAX 请求
 ==== 代码实例
+[,html]
 ----
 <!DOCTYPE html>
 <html lang="en">
@@ -247,6 +248,7 @@ status 是在请求完成后表示 HTTP 响应状态的属性。它包含一个�
 * `xml` 表示 xml 数据
 * `json` 表示 json 对象
 
+[,javascript]
 ----
 $(function () {
     $("#btn").click(function () {
@@ -273,6 +275,7 @@ $(function () {
 - `callback` 成功的回调函数
 - `type` 返回的数据类型
 
+[,javascript]
 ----
 $("#getBtn").click(function(){
     $.get(
@@ -292,6 +295,7 @@ $("#getBtn").click(function(){
 - `data` 发送给服务器的数据
 - `callback` 成功的回调函数
 
+[,javascript]
 ----
 $("#getJSONBtn").click(function () {
     $.getJSON(
@@ -308,6 +312,7 @@ $("#getJSONBtn").click(function () {
 `serialize()` 可以把表单中所有表单项的内容都获取到，并以 `name=value&name=value` 的形式进行拼接。
 
 .使用：把通过serialize()获取到的键值对发送给服务器
+[,javascript]
 ----
 $("#submit").click(function () {
     // 把参数序列化

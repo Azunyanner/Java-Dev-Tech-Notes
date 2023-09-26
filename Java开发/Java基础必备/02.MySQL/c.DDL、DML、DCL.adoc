@@ -241,6 +241,8 @@ DELETE FROM table_name [WHERE <condition>];
 === MySQL8新特性：计算列
 计算列是指某一列的值是通过别的列计算得来的。例如，a列值为1、b列值为2，c列不需要手动插入，定义a+b的结果为c的值，那么c就是计算列，是通过别的列计算得来的。
 
+CREATE TABLE 和 ALTER TABLE 中都支持增加计算列。
+
 .例
 ----
 CREATE TABLE tb1(
@@ -252,6 +254,40 @@ c INT GENERATED ALWAYS AS (a + b) VIRTUAL
 ----
 
 == MySQL数据类型[待补充...]
+=== MySQL中的数据类型
+[%header, cols="2*^.^"]
+|===
+|类型 |类型举例
+|整数类型 |TINYINT、SMALLINT、MEDIUMINT、INT(或INTEGER)、BIGINT
+|浮点类型 |FLOAT、DOUBLE
+|定点数类型 |DECIMAL
+|位类型 |BIT
+|日期时间类型 |YEAR、TIME、DATE、DATETIME、TIMESTAMP
+|文本字符串类型 |CHAR、VARCHAR、TINYTEXT、TEXT、MEDIUMTEXT、LONGTEXT
+|枚举类型 |ENUM
+|集合类型 |SET
+|二进制字符串类型 |BINARY、VARBINARY、TINYBLOB、BLOB、MEDIUMBLOB、LONGBLOB
+|JSON类型 |JSON对象、JSON数组
+
+|空间数据类型
+|单值类型：GEOMETRY、POINT、LINESTRING、POLYGON +
+集合类型：MULTIPOINT、MULTILINESTRING、MULTIPOLYGON、GEOMETRYCOLLECTION
+|===
+
+常见数据类型的属性如下：
+
+[%header, cols="2*^.^"]
+|===
+|MySQL关键字 |含义
+|NULL |数据列可包含NULL值
+|NOT NULL |数据列不允许包含NULL值
+|DEFAULT |默认值
+|PRIMARY KEY |主键
+|AUTO_INCREMENT |自动递增，适用于整数类型
+|UNSIGNED |无符号
+|CHARACTER SET name |指定一个字符集
+|===
+
 === 整型
 
 === 浮点型

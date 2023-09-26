@@ -89,7 +89,7 @@ public void test1(){
 }
 ----
 ====
-.ArrayIndexOutOfBoundsException（数组越界异常
+.ArrayIndexOutOfBoundsException（数组越界异常）
 [%collapsible]
 ====
 ----
@@ -284,6 +284,7 @@ class Student{
 
 == 用户自定义异常类
 一般地，用户自定义异常类都是RuntimeException的子类。
+
 . 自定义异常类通常需要编写几个重载的构造器。
 . 自定义异常需要提供serialVersionUID
 . 自定义的异常通过throw抛出。

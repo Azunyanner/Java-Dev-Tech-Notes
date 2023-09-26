@@ -43,7 +43,7 @@ Java 集合可分为 Collection 和 Map 两种体系。
 *** ArrayList、LinkedList、Vector
 ** Set接口：存储无序的、不可重复的数据。
 *** HashSet、LinkedHashSet、TreeSet
-- Map接口：双列集合，用来存储一对(key - value)一对的数据。
+- Map接口：双列集合，用来存储一对(key - value)的数据。
 ** HashMap、LinkedHashMap、TreeMap、Hashtable、Properties
 
 ==== Collection接口继承树
@@ -344,7 +344,12 @@ NOTE: 此方法区别于Collection接口中的remove方法，Collection中的rem
 - 集合元素可以是 null
 . HashSet 集合判断两个元素相等的标准：两个对象通过 hashCode() 方法比较相等，并且两个对象的 equals() 方法返回值也相等。
 
-==== HashSet添加元素的过程：
+==== 底层原理
+===== 源码分析
+HashSet底层是HashMap。 +
+HashSet中的值是作为HashMap的key存储的，此时HashMap的value是一个静态的Object对象。
+
+===== HashSet添加元素的过程
 向HashSet中添加元素a,首先调用元素a所在类的hashCode()方法，计算元素a的哈希值，此哈希值接着通过某种算法计算出在HashSet底层数组中的存放位置（即为：索引位置），判断数组此位置上是否已经有元素：
 
 - 如果此位置上没有其他元素，则元素a添加成功。 ->情况1
